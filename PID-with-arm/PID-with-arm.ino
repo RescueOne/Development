@@ -62,14 +62,12 @@ int MIDDLE = 500;
 int UP = 950;
 int DOWN = 650;
 
+int reset = 0;
 void loop()
 {
 
-  // Setting the arm to the central position so it can fit through the door
   motor.speed(MOTOR_LEFT,0);
   motor.speed(MOTOR_RIGHT,0);
-  setServo(SERVO_PLATE, 0);
-  ResetPosition();
   
   LCD.clear(); LCD.home();
   LCD.print("Start: Menu");
@@ -91,7 +89,15 @@ void loop()
     delay(100);
     if (stopbutton())
     {
-      PID();  
+      // Setting the arm to the central position so it can fit through the door
+//      if( reset == 0)
+//      {
+          setServo(SERVO_PLATE, 0);
+          ResetPosition();
+          reset++;
+//      }
+      
+//      PID();  
     } 
   }
 }
@@ -241,6 +247,8 @@ void SetArmLoc(int xloc)
 void ResetPosition()
 {
     SetArmHeight(UP); SetArmLoc(MIDDLE);
+    motor.speed(MOTOR_HOR,0);
+    motor.speed(MOTOR_VERT,0);
 }
 
 void Release()
@@ -277,7 +285,7 @@ void setServo(int servo, int angle)
 =====================
 */
 
-void ArmPID(int pos, int motor_pin, int pot_pin)
+void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
 {
 // Set the screen to be ready to print
     LCD.clear();  LCD.home();
@@ -288,6 +296,7 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     int knob = 200;
     int pot = 200;
     int count = 0;
+    int target = 0;
     
     // PID variables
     int proportional = 0;
@@ -302,7 +311,6 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     // Errors
     int error = 0;
     int last_error = 0;
-    int sum_error = 0;
     
     // Setting values
 //    P_gain = menuItems[1].Value;
@@ -310,30 +318,53 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
 //    I_gain = menuItems[3].Value;
 // temp off b/c it would coincide with tape following variables
     
+    // setting PID gain to be respective to the motor
+    if( motor_pin == MOTOR_VERT )
+    {
+        P_gain = 8;
+        I_gain = 5;
+        D_gain = 4;
+    }
+    else
+    {
+        P_gain = 8;
+        I_gain = 1;
+        D_gain = 4;
+    }
+    
     while(true){
 
         pot = analogRead(pot_pin);
-
+        
+        // stopping the motor from moving into restricted areas
+        if( motor_pin == MOTOR_HOR )
+        {
+            if (pot > 900 || pot < 100) { motor.speed(motor_pin, 0); continue;}
+        }
+        else
+        {
+            if (pot > 1000 || pot < 550) { motor.speed(motor_pin, 0); continue;}
+        }
+        
         if( pot > pos ) {
             error = (pot - pos) / 10.0;
         }
         if( pot < pos ) {
             error = (pot - pos) / 10.0;
         }
-        if( pos <= ( knob + 35 ) && pos >= ( knob - 35)) {
+        if( pot <= ( pos + 10 ) && pot >= ( pos - 10)) {
             error = 0;
+            target++;
         }
-        if( error == 0)
-        {
-            sum_error = 0;
-        }
-        
+       
         proportional = P_gain * error;    
-        integral = I_gain * sum_error;
+        integral = I_gain * error + integral;
         derivative = D_gain * (error - last_error);
         
+        // handling integral gain
         if ( integral > maxI) { integral = maxI;}
         if ( integral < -maxI) { integral = -maxI;}
+        if( error == 0) { integral = 0; }
 
         compensator = proportional + derivative + integral;
         
@@ -345,7 +376,6 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
         motor.speed(motor_pin, compensator);
 
         last_error = error;
-        sum_error += error;
         
         if( count == 300)
          {
@@ -357,16 +387,19 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
          }
          count++;
          
-         if(stopbutton())
+         if(target > 1000)
          {
                delay(100);
-               if(stopbutton())
+               if(target > 1000)
                {
-                     break;
+                     return;
                }
          }
     }
 }
+
+void ArmVerticalPID(int pos, int motor_pin, int pot_pin)
+{
 
 /*
 ==========
