@@ -285,7 +285,7 @@ void setServo(int servo, int angle)
 =====================
 */
 
-void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
+void ArmPID(int pos, int motor_pin, int pot_pin)
 {
 // Set the screen to be ready to print
     LCD.clear();  LCD.home();
@@ -293,15 +293,16 @@ void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
     LCD.setCursor(0,1);
     
     // Variables
-    int knob = 200;
-    int pot = 200;
+    int pot = 0;
     int count = 0;
     int target = 0;
+    int max_speed = 0;
+    int deadband = 20; // will never be exactly in the spot we want but in a range
     
     // PID variables
-    int proportional = 0;
-    int integral = 0;
-    int derivative = 0;
+    double proportional = 0;
+    double integral = 0;
+    double derivative = 0;
     int P_gain = 8;
     int I_gain = 1;
     int D_gain = 4;
@@ -324,12 +325,14 @@ void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
         P_gain = 8;
         I_gain = 5;
         D_gain = 4;
+        max_speed = 150;
     }
-    else
+    else // horizontal motor
     {
-        P_gain = 8;
-        I_gain = 1;
+        P_gain = 7;
+        I_gain = 24;
         D_gain = 4;
+        max_speed = 50;
     }
     
     while(true){
@@ -337,28 +340,32 @@ void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
         pot = analogRead(pot_pin);
         
         // stopping the motor from moving into restricted areas
-        if( motor_pin == MOTOR_HOR )
+        if( motor_pin == MOTOR_VERT)
         {
-            if (pot > 900 || pot < 100) { motor.speed(motor_pin, 0); continue;}
+            if (pot > 1000 || pot < 600) { motor.speed(motor_pin, 0); continue;}
         }
         else
         {
-            if (pot > 1000 || pot < 550) { motor.speed(motor_pin, 0); continue;}
+            
+            if (pot > 900 || pot < 100) { motor.speed(motor_pin, 0); continue;}
         }
         
+        // redundant if statements?
         if( pot > pos ) {
             error = (pot - pos) / 10.0;
         }
         if( pot < pos ) {
             error = (pot - pos) / 10.0;
         }
-        if( pot <= ( pos + 10 ) && pot >= ( pos - 10)) {
+        // 
+        if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
             error = 0;
             target++;
         }
+        else { target = 0; }
        
         proportional = P_gain * error;    
-        integral = I_gain * error + integral;
+        integral = I_gain * error / 100.0 + integral;
         derivative = D_gain * (error - last_error);
         
         // handling integral gain
@@ -369,7 +376,7 @@ void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
         compensator = proportional + derivative + integral;
         
         // setting max speed for the small motor
-        int max_speed = 150;
+        
         if( compensator > max_speed) compensator = max_speed;
         if( compensator < -max_speed) compensator = -max_speed;
         
@@ -397,9 +404,6 @@ void ArmHorizontalPID(int pos, int motor_pin, int pot_pin)
          }
     }
 }
-
-void ArmVerticalPID(int pos, int motor_pin, int pot_pin)
-{
 
 /*
 ==========
