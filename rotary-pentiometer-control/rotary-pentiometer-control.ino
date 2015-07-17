@@ -125,6 +125,7 @@ void PID() {
     int D_gain;
     int dir;
     double compensator = 0;
+    int maxI = 50;
     
     // Errors
     int error = 0;
@@ -144,8 +145,8 @@ void PID() {
         knob = analogRead(knob_pin);
         pot = analogRead(pot_pin);
         
-        if (knob > 950) knob = 950;
-        if (knob < 700) knob = 700;
+//        if (knob > 950) knob = 950;
+//        if (knob < 700) knob = 700;
         
         //  int motor = (knob - 511.5)/2.0; // speed between 255 and -255
 //        frac = ((double) pot - (double) knob) / ( (double) pot + (double) knob);
@@ -163,12 +164,19 @@ void PID() {
         }
         
 //        frac_error = ( (double) error ) / ((double) knob + (double) pot);
+        if( error == 0)
+        {
+            sum_error = 0;
+        }
         
         proportional = P_gain * error;    
-//        integral = I_gain * sum_error;
+        integral = I_gain * sum_error;
         derivative = D_gain * (error - last_error);
         
-        compensator = proportional + derivative;
+        if ( integral > maxI) { integral = maxI;}
+        if ( integral < -maxI) { integral = -maxI;}
+
+        compensator = proportional + derivative + integral;
 //        + derivative + integral;
         
         // setting max speed so the TINAH doesn't turn off
@@ -179,6 +187,7 @@ void PID() {
         motor.speed(3, compensator);
 
         last_error = error;
+        sum_error += error;
         
         if( count == 300)
          {
