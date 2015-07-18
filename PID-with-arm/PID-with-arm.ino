@@ -57,10 +57,10 @@ int POT_VERT = 5;
 int POT_HOR = 4;
 
 // Locations
-int RIGHT = 800;
+int RIGHT = 750;
 int MIDDLE = 500;
-int UP = 950;
-int DOWN = 650;
+int UP = 920;
+int DOWN = 700;
 
 int reset = 0;
 void loop()
@@ -90,14 +90,14 @@ void loop()
     if (stopbutton())
     {
       // Setting the arm to the central position so it can fit through the door
-//      if( reset == 0)
-//      {
+      if( reset == 0)
+      {
           setServo(SERVO_PLATE, 0);
           ResetPosition();
           reset++;
-//      }
+      }
       
-//      PID();  
+      PID();  
     } 
   }
 }
@@ -234,14 +234,16 @@ void PickupAndDrop()
 
 void SetArmHeight(int yloc)
 {
-    if( yloc == UP) { ArmPID(yloc, MOTOR_VERT, POT_VERT); }
-    else { ArmPID(yloc, MOTOR_VERT, POT_VERT);}
+    ArmPID(yloc, MOTOR_VERT, POT_VERT);
+//if( yloc == UP) {  }
+//    else { ArmPID(yloc, MOTOR_VERT, POT_VERT);}
 }
 
 void SetArmLoc(int xloc)
 {
-    if( xloc == RIGHT) { ArmPID(xloc, MOTOR_HOR, POT_HOR); }
-    else { ArmPID(xloc, MOTOR_HOR, POT_HOR);}
+   ArmPID(xloc, MOTOR_HOR, POT_HOR);
+//    if( xloc == RIGHT) { ArmPID(xloc, MOTOR_HOR, POT_HOR); }
+//    else { ArmPID(xloc, MOTOR_HOR, POT_HOR);}
 }
 
 void ResetPosition()
@@ -297,15 +299,16 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     int count = 0;
     int target = 0;
     int max_speed = 0;
-    int deadband = 20; // will never be exactly in the spot we want but in a range
+    int deadband = 35; // will never be exactly in the spot we want but in a range
+    // NOTE: working deadband was 35
     
     // PID variables
     double proportional = 0;
     double integral = 0;
     double derivative = 0;
-    int P_gain = 8;
-    int I_gain = 1;
-    int D_gain = 4;
+    int P_gain;
+    int I_gain;
+    int D_gain;
     int maxI = 50;
     double compensator = 0;
     
@@ -322,10 +325,11 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     // setting PID gain to be respective to the motor
     if( motor_pin == MOTOR_VERT )
     {
-        P_gain = 8;
-        I_gain = 5;
-        D_gain = 4;
+        P_gain = 10;
+        I_gain = 24;
+        D_gain = 0;
         max_speed = 150;
+        maxI = 150;
     }
     else // horizontal motor
     {
@@ -342,27 +346,28 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
         // stopping the motor from moving into restricted areas
         if( motor_pin == MOTOR_VERT)
         {
-            if (pot > 1000 || pot < 600) { motor.speed(motor_pin, 0); continue;}
+//            if (pot > 1000 || pot < 600) { motor.speed(motor_pin, 0); continue;}
         }
         else
         {
             
-            if (pot > 900 || pot < 100) { motor.speed(motor_pin, 0); continue;}
+//            if (pot > 900 || pot < 100) { motor.speed(motor_pin, 0); continue;}
         }
         
+        error = (pot -pos) / 10.0;
         // redundant if statements?
-        if( pot > pos ) {
-            error = (pot - pos) / 10.0;
-        }
-        if( pot < pos ) {
-            error = (pot - pos) / 10.0;
-        }
-        // 
+//        if( pot > pos ) {
+//            error = (pot -pos) / 10.0;
+//        }
+//        if( pot < pos ) {
+//            error = (pot - pos) / 10.0;
+//        }
+        
         if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
             error = 0;
             target++;
         }
-        else { target = 0; }
+//        else { target = 0; } sometimes the arm was getting caught on the deadband line and this wasn't working
        
         proportional = P_gain * error;    
         integral = I_gain * error / 100.0 + integral;
