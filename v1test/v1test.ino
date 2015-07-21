@@ -30,9 +30,9 @@ MenuItem Speed            = MenuItem("Speed");
 MenuItem ProportionalGainTape = MenuItem("P-gain Tape");
 MenuItem DerivativeGain   = MenuItem("D-gain Tape");
 MenuItem IntegralGain     = MenuItem("I-gain Tape");
-MenuItem ThresholdTape    = MenuItem("Threshold Tape");
+MenuItem ThresholdTape    = MenuItem("Thresh Tape");
 MenuItem ProportionalGainIR = MenuItem("P-gain IR");
-MenuItem ThresholdIR      = MenuItem("Threshold IR");
+MenuItem ThresholdIR      = MenuItem("Thresh IR");
 MenuItem menuItems[]      = {Speed, ProportionalGainTape, DerivativeGain, IntegralGain, ThresholdTape, ProportionalGainIR, ThresholdIR};
 
 void setup()
@@ -44,11 +44,11 @@ void setup()
 
 //TINAH Inputs
 
-//Motor
+//Motor   
 int MOTOR_LEFT = 2; //PWM output for left motor
 int MOTOR_RIGHT = 3; //PWM output for right motor
-int MOTOR_CRANE_HEIGHT = 0; //Motor for arm height
-int MOTOR_CRANE_ANGLE = 1; //Motor for arm angle
+int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
+int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
 int QRD_LEFT = 1; //Left QRD for tape following
@@ -66,10 +66,10 @@ int SWITCH_PLATE = 1; //Switch to see if pet is on plate
 
 //Other constants
 int MAX_ANALOG = 1023;
-int SPEED_HEIGHT = 150;
+int SPEED_HEIGHT = 90;
 int SPEED_ANGLE = 70;
 int P_HEIGHT = 20;
-int P_ANGLE = 20;
+int P_ANGLE = 12;
 int I_HEIGHT = 24;
 int I_ANGLE = 1;
 int I_MAX_HEIGHT = 150;
@@ -79,8 +79,8 @@ int ARM_DOWN = 700;
 int ARM_PICKUP = 600;
 int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
-int ARM_RIGHT = 750;
-int DEADBAND = 25;
+int ARM_RIGHT = 700;
+int DEADBAND = 15;
 
 //For reference
 int HEIGHT = 1;
@@ -117,27 +117,30 @@ void loop()
 }
  
 void mainStart()
-{
-  if (NUM == 0) {
-    ArmPID(HEIGHT,ARM_UP);
-    ArmPID(ANGLE,ARM_CENTRE);
-    PIDTape();
-  }
-  if (NUM == 1 || NUM == 2 || NUM == 3 || NUM == 4) {
-    moveToPet();
-    pickup(ARM_RIGHT,ARM_UP);
-    PIDTape();
-  }
-  if (NUM == 5) {
-    stopDrive();
+{ 
+  LCD.clear();
+  while(true) {    
+    if (NUM == 0) {
+      LCD.home(); LCD.print(NUM);
+      ArmPID(HEIGHT,ARM_UP);
+      ArmPID(ANGLE,ARM_CENTRE);
+      PIDTape();
+    }
+    if (NUM == 1 || NUM == 2 || NUM == 3) {
+      LCD.home(); LCD.print(NUM);
+      moveToPet();
+      pickup(ARM_RIGHT,ARM_UP);
+      moveBack();
+      PIDTape();
+    }
+    if (NUM == 4) {
+      stopDrive();
+    }
   }
 }
 
 void PIDTape()
 {  
-  LCD.clear(); LCD.home();
-  LCD.print("Following");
-  
   //Variables
   int P = menuItems[1].Value; //Proportional gain value
   int D = menuItems[2].Value; //Derivative gain value
@@ -157,8 +160,8 @@ void PIDTape()
   
   int spd = (int)((float)S*((float)255/(float)MAX_ANALOG));
   
-  int WAIT_TIME = 500;
-  int start_time = millis();
+  int WAIT_TIME = 300;
+  long start_time = 0;
   int count = 0;
   
   //PID loop
@@ -170,11 +173,13 @@ void PIDTape()
     qrd_pet = analogRead(QRD_PET_FRONT);
     
     //Check if pet needs picking up
-    if(qrd_pet > THRESHOLD) {
-      NUM++;
-      if(NUM == 1 || NUM == 2 || NUM == 3 || NUM == 4) {break;}
-    } 
-    if(count == 0 && NUM == 1){last_error = 5; count++;}
+    if(count == 0){start_time = millis(); last_error = 5; count++;}
+    if ((millis() - start_time) > WAIT_TIME) {
+      if(qrd_pet > THRESHOLD) {
+        NUM++;
+        if(NUM == 1 || NUM == 2 || NUM == 3) {break;}
+      }
+    }
     
     /*Determine error
     * <0 its to the left
@@ -275,10 +280,18 @@ void stopDrive() {
 }
 
 void moveToPet() {
-  int THRESHOLD = menuItems[6].Value;
+  int THRESHOLD = menuItems[4].Value;
   motor.speed(MOTOR_LEFT, 150);
   motor.speed(MOTOR_RIGHT, 150);
   while(analogRead(QRD_PET_BACK) < THRESHOLD) {}
+  stopDrive();
+}
+
+void moveBack() {
+  int THRESHOLD = menuItems[4].Value;
+  motor.speed(MOTOR_LEFT, -150);
+  motor.speed(MOTOR_RIGHT, -150);
+  while(analogRead(QRD_LEFT) < THRESHOLD) {}
   stopDrive();
 }
 
@@ -292,7 +305,7 @@ void dropoff() {
   ArmPID(HEIGHT, ARM_UP);
   ArmPID(ANGLE, ARM_CENTRE);
   setServo(SERVO_PLATE, 90);
-//  while(digitalRead(SWITCH_PLATE) == LOW) {}
+  while(digitalRead(SWITCH_PLATE) == LOW) {}
   delay(500);
   setServo(SERVO_PLATE, 0);
 }
@@ -306,8 +319,6 @@ void pickup(int side, int height) {
 
 void ArmPID(int dim, int pos)
 {  
-    LCD.clear(); LCD.home();
-  
    //Set variables
     int P_gain;
     int I_gain;
@@ -338,7 +349,7 @@ void ArmPID(int dim, int pos)
     // Variables
    int pot = 0;
    int count = 0;
-   int target = 0;
+   long target = 0;
    int deadband = DEADBAND;
    
    // PID variables
@@ -352,22 +363,23 @@ void ArmPID(int dim, int pos)
    double last_error = 0;
    
    // STARTING THE TIMER
-   int start = millis();
-   int DELAY = 500;
+   int DELAY = 1000;
+   
+   LCD.clear(); 
    
    while(true){
      
        LCD.home();
-
+       LCD.print(pos); LCD.setCursor(0,1);
+       LCD.print(pot);
+     
        pot = analogRead(PIN);
        
        error = (pot -pos) / 10.0;
        
        if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
            error = 0;
-           target++;
        }
-       else { target = 0; } //sometimes the arm was getting caught on the deadband line and this wasn't working
       
        proportional = P_gain * error;    
        integral = I_gain * error / 100.0 + integral;
@@ -388,16 +400,14 @@ void ArmPID(int dim, int pos)
 
        last_error = error;
           
-        // Break the loop if the 
-        if(target > 100)
-        {
-              delay(100);
-              if(target > 100)
-              {
-                    return;
-              }
-        }
+       // Break the loop if the 
+       if(error == 0) {
+         target = millis();
+         while(pot <= ( pos + deadband ) && pot >= ( pos - deadband)){
+           if(millis() - target > DELAY) {return;}
+         }
+       }
         
-        LCD.print(pot);
+       if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
    }
 }
