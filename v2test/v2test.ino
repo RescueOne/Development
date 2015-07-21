@@ -59,8 +59,8 @@ void setup()
 //Motor
 int MOTOR_LEFT = 2; //PWM output for left motor
 int MOTOR_RIGHT = 3; //PWM output for right motor
-int MOTOR_CRANE_HEIGHT = 0; //Motor for arm height
-int MOTOR_CRANE_ANGLE = 1; //Motor for arm angle
+int MOTOR_VERTICAL = 0; //Motor for arm height
+int MOTOR_HORIZONTAL = 1; //Motor for arm angle
 
 //Analog
 int QRD_RIGHT = 0; //Right QRD for tape following
@@ -264,9 +264,10 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     int I_gain;
     int D_gain;
     int maxI = 50;
+    int max_speed = 0;
 
     // setting PID constants to be respective to the motor
-    if( motor_pin == MOTOR_VERT )
+    if( motor_pin == MOTOR_VERTICAL )
     {
         P_gain = 10;
         I_gain = 24;
@@ -287,7 +288,6 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     int pot = 0;
     int count = 0;
     int target = 0;
-    int max_speed = 0;
     int deadband = 25; // will never be exactly in the spot we want but in a range
     // NOTE: working deadband was 35
     
@@ -300,24 +300,6 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     // Errors
     double error = 0;
     double last_error = 0;
-    
-    // setting PID constants to be respective to the motor
-    if( motor_pin == MOTOR_VERT )
-    {
-        P_gain = 10;
-        I_gain = 24;
-        D_gain = 0;
-        max_speed = 150;
-        maxI = 150;
-    }
-    else // horizontal motor
-    {
-        P_gain = 2;
-        I_gain = 1;
-        D_gain = 4;
-        max_speed = 70;
-        maxI = 150;
-    }
     
     // STARTING THE TIMER
     int start = millis();
@@ -424,7 +406,7 @@ void PickupAndDrop()
 }
 
 // Set the arm location based on the given position
-void setArm(int loc)
+void SetArm(int loc)
 {
 	if ( loc == RIGHT || loc == MIDDLE) { }
 	if ( loc == UP || loc == DOWN) { }
