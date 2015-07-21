@@ -71,8 +71,7 @@ void loop()
         if (stopbutton())
         {
                 LCD.clear(); LCD.home();
-      	        LCD.print("Start = exit!");
-                
+      	        LCD.print("Start = exit!");      
         }
 }
 
@@ -103,7 +102,7 @@ void PID() {
     
     // Set the screen to be ready to print
     LCD.clear();  LCD.home();
-    LCD.setCursor(0,0); LCD.print("Speed: ");
+//    LCD.setCursor(0,0); LCD.print("Speed: ");
     LCD.setCursor(0,1);
     
     // Input pins
@@ -143,11 +142,14 @@ void PID() {
     
     while(true){
       // (knob - 511.5)/2.0
-        knob = 500;
+        knob = 800;
         pot = analogRead(pot_pin);
         
+//         if (pot > 1000 || pot < 600) { motor.speed(1, 0); continue;}
+         
 //        if (knob > 950) knob = 950;
 //        if (knob < 600) knob = 700;
+
         
         //  int motor = (knob - 511.5)/2.0; // speed between 255 and -255
 //        frac = ((double) pot - (double) knob) / ( (double) pot + (double) knob);
@@ -198,7 +200,7 @@ void PID() {
 //        + derivative + integral;
         
         // setting max speed so the TINAH doesn't turn off
-        int max_speed = 50;
+        int max_speed = 150;
         if( compensator > max_speed) compensator = max_speed;
         if( compensator < -max_speed) compensator = -max_speed;
         
@@ -209,7 +211,7 @@ void PID() {
         if( count == 300)
          {
                LCD.clear(); LCD.home();
-               LCD.print("prop:"); LCD.print(proportional);
+               LCD.print("prop:"); LCD.print(pot);
                LCD.setCursor(0, 1);
                LCD.print("int:"); LCD.print(integral);
                LCD.print(" der:"); LCD.print(derivative);

@@ -108,29 +108,27 @@ void PID() {
     
     // Input pins
     int knob_pin = 7;
-    int pot_pin = 4;
+    int pot_pin = 5;
     
     // Variables
     int knob = 200;
     int pot = 200;
     int motor_speed;
     int count = 0;
-    int target = 0;
     
     // PID variables
-    double proportional = 0;
-    double integral = 0;
-    double derivative = 0;
+    int proportional = 0;
+    int integral = 0;
+    int derivative = 0;
     int P_gain;
     int I_gain;
     int D_gain;
     int dir;
     double compensator = 0;
-    int maxI = 150;
     
     // Errors
-    double error = 0;
-    double last_error = 0;
+    int error = 0;
+    int last_error = 0;
     int sum_error = 0;
     
     // Setting values
@@ -143,31 +141,15 @@ void PID() {
     
     while(true){
       // (knob - 511.5)/2.0
-        knob = 500;
+        knob = analogRead(knob_pin);
         pot = analogRead(pot_pin);
         
-//        if (knob > 950) knob = 950;
-//        if (knob < 600) knob = 700;
+        if (knob > 950) knob = 950;
+        if (knob < 700) knob = 700;
         
         //  int motor = (knob - 511.5)/2.0; // speed between 255 and -255
 //        frac = ((double) pot - (double) knob) / ( (double) pot + (double) knob);
         // general PID logic
-
-//        if( pot > knob-25 || )
-//        {
-//            error = (pot - knob) / 10.0;
-//            target = 0;
-//        }
-//        else if( pot < knob+25)
-//        {
-//            error = (pot - knob) / 10.0;
-//            target = 0;
-//        }
-//        else
-//        {
-//            error = 0;
-//            target++;
-//        }
 
         if( pot > knob ) {
             error = (pot - knob) / 10.0;
@@ -176,60 +158,44 @@ void PID() {
             error = (pot - knob) / 10.0;
         }
         // pot <= ( knob + 20) && pot >= ( knob - 20)
-        if( pot <= ( knob + 25 ) && pot >= ( knob - 25)) {
+        if( pot <= ( knob + 35 ) && pot >= ( knob - 35)) {
             error = 0;
-            target++;
-        }
-        else
-        {
-            target = 0;
         }
         
-        proportional = (double) P_gain * error;    
-        integral =  ( (double) I_gain ) * error / 100.0 + integral;
-        derivative = (double) D_gain * (error - last_error);
+//        frac_error = ( (double) error ) / ((double) knob + (double) pot);
         
-        if ( integral > maxI) { integral = maxI;}
-        if ( integral < -maxI) { integral = -maxI;}
+        proportional = P_gain * error;    
+//        integral = I_gain * sum_error;
+        derivative = D_gain * (error - last_error);
         
-        if ( error == 0 ) integral = 0;
-
-        compensator = proportional + derivative + integral;
+        compensator = proportional + derivative;
 //        + derivative + integral;
         
         // setting max speed so the TINAH doesn't turn off
-        int max_speed = 50;
+        int max_speed = 150;
         if( compensator > max_speed) compensator = max_speed;
         if( compensator < -max_speed) compensator = -max_speed;
         
-        motor.speed(1, compensator);
+        motor.speed(3, compensator);
 
         last_error = error;
         
         if( count == 300)
          {
                LCD.clear(); LCD.home();
-               LCD.print("prop:"); LCD.print(proportional);
+               LCD.print("POT: "); LCD.print(pot);
                LCD.setCursor(0, 1);
-               LCD.print("int:"); LCD.print(integral);
-               LCD.print(" der:"); LCD.print(derivative);
-//LCD.print("INT: "); LCD.print(integral);
+               LCD.print("KNOB: "); LCD.print(knob);
+//LCD.print("Error: "); LCD.print(error);
                count = 0;
          }
          count++;
          
-         if ( target > 1000)
-         {
-             LCD.clear(); LCD.home();
-            LCD.print("TARGET");
-            delay(500);
-         }
          if(stopbutton())
          {
                delay(100);
                if(stopbutton())
                {
-                     motor.speed(1, 0);
                      break;
                }
          }

@@ -81,6 +81,7 @@ void PID()
   //Variables
   int QRD_LEFT_PIN = 1; //Analog pin for left QRD
   int QRD_RIGHT_PIN = 0; //Analog pin for right QRD
+  int QRD_PET = 2;
   int MAX_INTEGRAL = 50; //Maximum integral term value
   int P = menuItems[1].Value; //Proportional gain value
   int D = menuItems[2].Value; //Derivative gain value
@@ -89,6 +90,7 @@ void PID()
   int THRESHOLD = menuItems[4].Value; //threshold for switch from white to black
   int qrd_left = 0; //Value of left qrd
   int qrd_right = 0; //Value of right qrd
+  int qrd_pet = 0;
   int error = 0; //Current error
   int last_error = 0; //Previous error
   int recent_error = 0; //Recent error
@@ -108,12 +110,22 @@ void PID()
     //Read QRD's
     qrd_left = analogRead(QRD_LEFT_PIN);
     qrd_right = analogRead(QRD_RIGHT_PIN);
+    qrd_pet = analogRead(QRD_PET);
     
     /*Determine error
     * <0 its to the left
     * >0 its to the right
     * 0 its dead on
     */
+    
+    if (qrd_pet > THRESHOLD) { 
+    
+      motor.speed(MOTOR_LEFT,0);
+      motor.speed(MOTOR_RIGHT,0);
+    
+      LCD.setCursor(0,1);LCD.print("PICKING UP PET");delay(3000); 
+    
+  }
     
     //left on white
     if(qrd_left < THRESHOLD){
