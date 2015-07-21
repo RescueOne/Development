@@ -81,6 +81,7 @@ int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
 int ARM_RIGHT = 700;
 int DEADBAND = 15;
+int TURNAROUND_DELAY = 300;
 
 //For reference
 int HEIGHT = 1;
@@ -121,17 +122,15 @@ void mainStart()
   LCD.clear();
   while(true) {    
     if (NUM == 0) {
-      LCD.home(); LCD.print(NUM);
       ArmPID(HEIGHT,ARM_UP);
       ArmPID(ANGLE,ARM_CENTRE);
       PIDTape();
     }
     if (NUM == 1 || NUM == 2 || NUM == 3) {
-      LCD.home(); LCD.print(NUM);
-      moveToPet();
-      pickup(ARM_RIGHT,ARM_UP);
-      moveBack();
       PIDTape();
+    }
+    if (NUM == 4) {
+      turnAround();
     }
     if (NUM == 4) {
       stopDrive();
@@ -315,6 +314,15 @@ void pickup(int side, int height) {
   ArmPID(ANGLE, side);
   ArmPID(HEIGHT, ARM_DOWN);
   dropoff();
+}
+
+void turnAround() {
+  int THRESHOLD = menuItems[4].Value;
+  motor.speed(MOTOR_LEFT, -100);
+  motor.speed(MOTOR_RIGHT, 100);
+//  delay(TURNAROUND_DELAY);
+  while(analogRead(QRD_LEFT) < THRESHOLD) {}
+  stopDrive();
 }
 
 void ArmPID(int dim, int pos)
