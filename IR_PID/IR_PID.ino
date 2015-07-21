@@ -38,6 +38,8 @@ void setup()
 
 int MOTOR_LEFT = 2; //PWM output for left motor
 int MOTOR_RIGHT = 3; //PWM output for right motor
+int IR_PIN = 3; //Pin for IR sensor
+int IR_PIN2 = 4;
 
 void loop()
 {
@@ -69,12 +71,30 @@ void loop()
       PID();  
     } 
   }
+  
+  int ir1;
+  int ir2;
+  
+  if(startbutton() && stopbutton())
+  {
+    LCD.clear(); LCD.home();
+    delay(100);
+    while(!stopbutton())
+    {
+      LCD.clear(); LCD.home();
+      ir1 = analogRead(IR_PIN);
+      ir2 = analogRead(IR_PIN2);
+      LCD.print("ir1 "); LCD.print(ir1);
+      LCD.setCursor(0,1); 
+      LCD.print("ir2 "); LCD.print(ir2);
+      delay(100);
+    }
+  }
 }
  
 void PID()
 {  
   //Variables
-  int IR_PIN = 0; //Pin for IR sensor
   int P = menuItems[1].Value; //Proportional gain value
   int S = menuItems[0].Value; //Speed
   int THRESHOLD = menuItems[2].Value; //Threshold max IR value
@@ -87,14 +107,23 @@ void PID()
   int oldDirection = 0; //-1 for left, 1 for right
   
   int spd = (int)((float)S*((float)255/(float)1023));
-  
+  int count = 0;
   //PID loop
   while (true)
   {
     
+    if (count > 300)
+    {
+      LCD.clear(); LCD.home();
+      LCD.print(error); LCD.print("  "); 
+      if( oldDirection == 1) { LCD.print("R"); }
+      else { LCD.print("L");}
+      LCD.setCursor(0,1);
+      LCD.print(irVal);
+    }
+    count++;
     //For debugging
-    LCD.clear(); LCD.home();
-    LCD.print(error); LCD.print("  "); LCD.print(oldDirection);
+    
     
     //Read QRD's
     irVal = analogRead(IR_PIN);

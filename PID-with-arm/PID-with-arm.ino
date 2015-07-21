@@ -55,6 +55,7 @@ int QRD_PET = 2; // For pet sensing when we find a pet
 int SERVO_PLATE = 0; 
 int POT_VERT = 5;
 int POT_HOR = 4;
+int SWITCH_PLATE = 0;
 
 // Locations
 int RIGHT = 750;
@@ -138,7 +139,13 @@ void PID()
   int duration_last = 0; //Number of loops on last error
   int compensation = 0;
   
-  int spd = (int)((float)S*((float)255/(float)1023));
+//  int spd = (int)((float)S*((float)255/(float)1023));
+  
+  int DELAY = 500;
+  int PETS = 0;
+  long TIME_BETWEEN_PETS = 1000;
+  
+  long t1 = 0;
   
   //PID loop
   while (true)
@@ -146,27 +153,42 @@ void PID()
     //Read QRD's
     qrd_left = analogRead(QRD_LEFT_PIN);
     qrd_right = analogRead(QRD_RIGHT_PIN);
-    qrd_pet = analogRead(QRD_PET);
+    qrd_pet = analogRead(QRD_PET);  
+    
+    if(qrd_pet > 500 && millis() > t1 + TIME_BETWEEN_PETS)
+    {
+        
+        motor.speed(MOTOR_LEFT,0);
+        motor.speed(MOTOR_RIGHT,0);
+  
+//        if(digitalRead(SWITCH_PLATE) == LOW) { break; }
+  
+        // pickup pet
+        LCD.setCursor(0,1);LCD.print("PICKING UP PET");
+        PickupAndDrop();
+        LCD.clear(); LCD.home();
+        PETS++;
+        t1=millis();
+  }
+    
+//    if (startTime > WAIT_IN_MILLI) {
+//         if (qrd_pet > THRESHOLD) {
+//              
+//              last_time=millis();
+//             
+//          } 
+//    }
+
+//    if(millis() - startTime >= 
+
+    if(PETS >= 4) {break;}
     
     /*Determine error
     * <0 its to the left
     * >0 its to the right
     * 0 its dead on
     */
-    
-    if (qrd_pet > THRESHOLD) { 
-    
-      motor.speed(MOTOR_LEFT,0);
-      motor.speed(MOTOR_RIGHT,0);
-      
-      // pickup pet
-      LCD.setCursor(0,1);LCD.print("PICKING UP PET");
-      PickupAndDrop();
-      delay(1000); 
-    
-  }
-    
-    //left on white
+    // left on white
     if(qrd_left < THRESHOLD){
       //right on white
       if(qrd_right < THRESHOLD){
@@ -211,8 +233,8 @@ void PID()
     compensation = proportional + integral + derivative;
     
     //Plant control (compensation +ve means move right)
-    motor.speed(MOTOR_LEFT,spd + compensation);
-    motor.speed(MOTOR_RIGHT,spd - compensation);
+    motor.speed(MOTOR_LEFT,S + compensation);
+    motor.speed(MOTOR_RIGHT,S - compensation);
   }
 }
 
@@ -257,7 +279,7 @@ void Release()
 {
   setServo(SERVO_PLATE, 90);
   //while(digitalRead(SWITCH_PLATE) == LOW) {}
-  delay(1000);
+  delay(200);
   setServo(SERVO_PLATE, 0);
 }
 
@@ -299,22 +321,22 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     int count = 0;
     int target = 0;
     int max_speed = 0;
-    int deadband = 35; // will never be exactly in the spot we want but in a range
+    int deadband = 25; // will never be exactly in the spot we want but in a range
     // NOTE: working deadband was 35
     
     // PID variables
     double proportional = 0;
     double integral = 0;
     double derivative = 0;
+    double compensator = 0;
     int P_gain;
     int I_gain;
     int D_gain;
     int maxI = 50;
-    double compensator = 0;
-    
+
     // Errors
-    int error = 0;
-    int last_error = 0;
+    double error = 0;
+    double last_error = 0;
     
     // Setting values
 //    P_gain = menuItems[1].Value;
@@ -333,12 +355,19 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
     }
     else // horizontal motor
     {
-        P_gain = 7;
-        I_gain = 24;
+        P_gain = 2;
+        I_gain = 1;
         D_gain = 4;
-        max_speed = 50;
+        max_speed = 70;
+        maxI = 150;
     }
     
+    // STARTING THE TIMER
+    int start = millis();
+    int DELAY = 2000;
+    
+    // cap the amount of time this loop can continue
+    //  (millis() - start) <= DELAY
     while(true){
 
         pot = analogRead(pot_pin);
@@ -367,7 +396,7 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
             error = 0;
             target++;
         }
-//        else { target = 0; } sometimes the arm was getting caught on the deadband line and this wasn't working
+        else { target = 0; } //sometimes the arm was getting caught on the deadband line and this wasn't working
        
         proportional = P_gain * error;    
         integral = I_gain * error / 100.0 + integral;
@@ -399,6 +428,10 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
          }
          count++;
          
+         // Break the loop if the pet has been picked up
+//         if(digitalRead(SWITCH_PLATE) == LOW) { break; }
+           
+         // Break the loop if the 
          if(target > 1000)
          {
                delay(100);
@@ -411,6 +444,12 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
 }
 
 /*
+=============
+== TESTING ==
+=============
+*/
+
+/*
 ==========
 == MENU ==
 ==========
@@ -418,6 +457,10 @@ void ArmPID(int pos, int motor_pin, int pot_pin)
 
 void Menu()
 {
+  
+        // for future implementations if wanting to include test code
+        int QRD_TEST = 2;
+  
 	LCD.clear(); LCD.home();
 	LCD.print("Entering menu");
 	delay(500);
@@ -429,7 +472,10 @@ void Menu()
 		LCD.clear(); LCD.home();
 		LCD.print(menuItems[menuIndex].Name); LCD.print(" "); LCD.print(menuItems[menuIndex].Value);
 		LCD.setCursor(0, 1);
-		LCD.print("Set to "); LCD.print(knob(7)); LCD.print("?");
+                // caps all the values between 0 and 255
+		int val = knob(7);
+                val = (val / 1023.0) * 255;
+		LCD.print("Set to "); LCD.print(val); LCD.print("?");
 		delay(100);
  
 		/* Press start button to save the new value */
@@ -438,9 +484,9 @@ void Menu()
 			delay(100);
 			if (startbutton())
 			{
-				menuItems[menuIndex].Value = knob(7);
+                                menuItems[menuIndex].Value = val;
 				menuItems[menuIndex].Save();
-				delay(250);
+                                delay(250);
 			}
 		}
  
