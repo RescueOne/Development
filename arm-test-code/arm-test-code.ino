@@ -23,7 +23,7 @@ public:
 		eeprom_write_word(EEPROMAddress, Value);
 	}
 };
- 
+
 uint16_t MenuItem::MenuItemCount = 0;
 /* Add the menu items here */
 MenuItem Speed            = MenuItem("Speed");
@@ -44,7 +44,7 @@ void setup()
 
 //TINAH Inputs
 
-//Motor   
+//Motor
 int MOTOR_LEFT = 2; //PWM output for left motor
 int MOTOR_RIGHT = 3; //PWM output for right motor
 int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
@@ -88,15 +88,15 @@ int HEIGHT = 1;
 int ANGLE = 2;
 
 void loop()
-{ 
+{
   setServo(SERVO_PLATE, 0);
-  
+
   LCD.clear(); LCD.home();
   LCD.print("Start: Menu");
   LCD.setCursor(0, 1);
   LCD.print("Stop: Arm tune");
   delay(100);
- 
+
   if (startbutton())
   {
     delay(100);
@@ -111,15 +111,15 @@ void loop()
     delay(100);
     if (stopbutton())
     {
-      mainStart();  
-    } 
+      mainStart();
+    }
   }
 }
- 
+
 void mainStart()
-{ 
+{
   LCD.clear();
-  while(true) {    
+  while(true) {
       // ArmPID(HEIGHT,ARM_UP);
       ArmPID(ANGLE,ARM_CENTRE);
       ArmPID(ANGLE,ARM_RIGHT);
@@ -128,7 +128,7 @@ void mainStart()
 }
 
 void ArmPID(int dim, int pos)
-{  
+{
    //Set variables
     int P_gain;
     int I_gain;
@@ -137,7 +137,7 @@ void ArmPID(int dim, int pos)
     int MOTOR;
     int PIN;
     int D_gain = 0;
-   
+
    //Height
    if(dim == HEIGHT) {
       P_gain = P_HEIGHT;
@@ -158,13 +158,13 @@ void ArmPID(int dim, int pos)
       MOTOR = MOTOR_CRANE_ANGLE;
       PIN = POTENTIOMETER_CRANE_ANGLE;
    }
-   
+
     // Variables
    int pot = 0;
    int count = 0;
    long target = 0;
    int deadband = DEADBAND;
-   
+
    // PID variables
    double proportional = 0;
    double integral = 0;
@@ -174,21 +174,25 @@ void ArmPID(int dim, int pos)
    // Errors
    double error = 0;
    double last_error = 0;
-   
-   // STARTING THE TIMER
-   int DELAY = 1500;
-   
-   LCD.clear(); 
-   
+
+   // Timing
+   int last_loop = 0;
+   int dt = 0;
+
+   LCD.clear();
+
   unsigned long last_integral_update_ms = 0;
   const unsigned int integral_update_delay_ms = 5;
 
    while(true){
-     
+
+      dt = millis() - last_loop;
+      last_loop = millis();
+
        // LCD.clear(); LCD.home();
        // LCD.print(pos); LCD.setCursor(0,1);
        // LCD.print(pot);
-       
+
        P_gain = analogRead(7) / 10;
        D_gain = analogRead(6) / 10;
 
@@ -199,26 +203,21 @@ void ArmPID(int dim, int pos)
         count = 0;
        }
        count++;
-       
+
 
        pot = analogRead(PIN);
-       
+
        error = (pot - pos) / 10.0;
-       
+
        if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
            error = 0;
            target++;
        }
        else { target = 0; }
-      
-       proportional = P_gain * error;
-       derivative = D_gain * ( error - last_error);  
 
-      if (millis() > last_integral_update_ms + integral_update_delay_ms)
-      {
-       integral = I_gain * error / 100.0 + integral;
-       last_integral_update_ms = millis(); 
-      }
+       proportional = P_gain * error;
+       derivative = D_gain * (error - last_error)/dt;
+       integral = I_gain * (error*dt + integral);
 
        // handling integral gain
        if ( integral > maxI) { integral = maxI;}
@@ -226,16 +225,16 @@ void ArmPID(int dim, int pos)
        if( error == 0) { integral = 0; derivative = 0;}
 
        compensator = proportional + integral + derivative;
-       
+
        // setting max speed for the small motor
-       
+
        if( compensator > max_speed) compensator = max_speed;
        if( compensator < -max_speed) compensator = -max_speed;
-       
+
        motor.speed(MOTOR, compensator);
 
        last_error = error;
-          
+
        if (stopbutton())
        {
         delay(100);
@@ -245,7 +244,7 @@ void ArmPID(int dim, int pos)
        {
          return;
        }
-        
+
        if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
    }
 }
@@ -265,7 +264,7 @@ void dropoff() {
   setServo(SERVO_PLATE, 0);
 }
 
-void pickup(int side, int height) {  
+void pickup(int side, int height) {
   ArmPID(HEIGHT, ARM_UP);
   ArmPID(ANGLE, side);
   ArmPID(HEIGHT, ARM_DOWN);
@@ -277,7 +276,7 @@ void Menu()
   LCD.clear(); LCD.home();
   LCD.print("Entering menu");
   delay(500);
- 
+
   while (true)
   {
     /* Show MenuItem value and knob value */
@@ -287,7 +286,7 @@ void Menu()
     LCD.setCursor(0, 1);
     LCD.print("Set to "); LCD.print(knob(7)); LCD.print("?");
     delay(100);
- 
+
     /* Press start button to save the new value */
     if (startbutton())
     {
@@ -299,7 +298,7 @@ void Menu()
         delay(250);
       }
     }
- 
+
     /* Press stop button to exit menu */
     if (stopbutton())
     {
