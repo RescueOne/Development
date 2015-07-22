@@ -80,7 +80,7 @@ int ARM_PICKUP = 600;
 int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
 int ARM_RIGHT = 730;
-int DEADBAND = 15;
+int DEADBAND = 10;
 int TURNAROUND_DELAY = 300;
 
 //For reference
@@ -150,10 +150,10 @@ void ArmPID(int dim, int pos)
    }
    //Angle
    else {
-      P_gain = 10;
-      I_gain = 0; // I_angle = 1
+      P_gain = 0;
+      I_gain = 10; // I_angle = 1
       D_gain = 0;
-      max_speed = SPEED_ANGLE;
+      max_speed = 70;
       maxI = I_MAX_ANGLE;
       MOTOR = MOTOR_CRANE_ANGLE;
       PIN = POTENTIOMETER_CRANE_ANGLE;
@@ -185,13 +185,25 @@ void ArmPID(int dim, int pos)
 
    while(true){
      
-       LCD.home();
-       LCD.print(pos); LCD.setCursor(0,1);
+       // LCD.clear(); LCD.home();
+       // LCD.print(pos); LCD.setCursor(0,1);
        // LCD.print(pot);
-     
+       
+       P_gain = analogRead(7) / 10;
+       D_gain = analogRead(6) / 10;
+
+       if (count > 300){
+        LCD.clear(); LCD.home();
+         LCD.print(P_gain); LCD.setCursor(0,1);
+         LCD.print(D_gain);
+        count = 0;
+       }
+       count++;
+       
+
        pot = analogRead(PIN);
        
-       error = (pot -pos) / 10.0;
+       error = (pot - pos) / 10.0;
        
        if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
            error = 0;
@@ -200,22 +212,18 @@ void ArmPID(int dim, int pos)
        else { target = 0; }
       
        proportional = P_gain * error;
-       derivative = D_gain * (error - last_error);  
+       derivative = D_gain * ( error - last_error);  
 
       if (millis() > last_integral_update_ms + integral_update_delay_ms)
       {
        integral = I_gain * error / 100.0 + integral;
        last_integral_update_ms = millis(); 
       }
-       
 
-        if ( derivative != 0.00) { LCD.print(derivative); delay(100);}
-        
-       
        // handling integral gain
        if ( integral > maxI) { integral = maxI;}
        if ( integral < -maxI) { integral = -maxI;}
-       if( error == 0) { integral = 0; }
+       if( error == 0) { integral = 0; derivative = 0;}
 
        compensator = proportional + integral + derivative;
        
@@ -233,7 +241,7 @@ void ArmPID(int dim, int pos)
         delay(100);
         if (stopbutton()) { return; }
        }
-       if ( target > 500 )
+       if ( target > 1000 )
        {
          return;
        }
