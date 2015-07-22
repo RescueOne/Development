@@ -4,6 +4,11 @@
 
 volatile unsigned int NUM = 0;
 
+/* 
+=============
+== CLASSES ==
+=============
+*/
 class MenuItem
 {
 public:
@@ -24,6 +29,7 @@ public:
   }
 };
 
+// Initializing the menu
 uint16_t MenuItem::MenuItemCount = 0;
 /* Add the menu items here */
 MenuItem Speed            = MenuItem("Speed");
@@ -35,6 +41,12 @@ MenuItem ProportionalGainIR = MenuItem("P-gain IR");
 MenuItem ThresholdIR      = MenuItem("Thresh IR");
 MenuItem menuItems[]      = {Speed, ProportionalGainTape, DerivativeGain, IntegralGain, ThresholdTape, ProportionalGainIR, ThresholdIR};
 
+/*
+===========
+== SETUP ==
+===========
+*/
+
 void setup()
 {
   #include <phys253setup.txt>
@@ -42,7 +54,11 @@ void setup()
   LCD.home();
 }
 
-//TINAH Inputs
+/*
+==================
+== TINAH INPUTS ==
+==================
+*/
 
 //Motor
 int MOTOR_LEFT = 3; //PWM output for left motor
@@ -64,7 +80,13 @@ int SERVO_PLATE = 0; //Servo to drop pet
 //Digital
 int SWITCH_PLATE = 1; //Switch to see if pet is on plate
 
-//Other constants
+
+/*
+===============
+== CONSTANTS ==
+===============
+*/
+
 int MAX_ANALOG = 1023;
 int SPEED_HEIGHT = 90;
 int SPEED_ANGLE = 70;
@@ -89,6 +111,12 @@ int PET_QRD_THRESHOLD = 300;
 int HEIGHT = 1;
 int ANGLE = 2;
 
+/*
+=================
+== HOME SCREEN ==
+=================
+*/
+
 void loop()
 {
   stopDrive();
@@ -100,24 +128,24 @@ void loop()
   LCD.print("Stop: PID");
   delay(100);
 
-  if (startbutton())
-  {
+  // opens the menu
+  if (startbutton()) {
     delay(100);
-    if (startbutton())
-    {
-      Menu();
-    }
+    if (startbutton()) { Menu(); }
   }
 
-  if (stopbutton())
-  {
+  // runs the control loop
+  if (stopbutton()) {
     delay(100);
-    if (stopbutton())
-    {
-      mainStart();
-    }
+    if (stopbutton()) { mainStart(); }
   }
 }
+
+/*
+==================
+== CONTROL LOOP ==
+==================
+*/
 
 /*
 Main loop that controls the robot and the specific code required to get each pet.
@@ -127,11 +155,13 @@ void mainStart()
 {
   LCD.clear();
   while(true) {
+    // at the start, sets the arm to fit in the door then runs PID code
     if (NUM == 0) {
       ArmPID(ANGLE,ARM_CENTRE);
       ArmPID(HEIGHT,ARM_HOR);
       PIDTape();
     }
+    // At the top, get the 4th pet then turn around
     if (NUM == 4) {
       LCD.setCursor(0,0); LCD.print(NUM);
       stopDrive();
@@ -140,6 +170,7 @@ void mainStart()
       turnAround();
       PIDTape();
     }
+    // Arm control for the 3 pets on the way back
     if (NUM == 5 || NUM == 6 || NUM == 7) {
 //      moveToPet();
       stopDrive();
@@ -154,6 +185,12 @@ void mainStart()
 //    }
   }
 }
+
+/*
+===================
+== MOTOR CONTROL ==
+===================
+*/
 
 /*
 Stops the drive motors.
@@ -175,6 +212,10 @@ void moveToPet() {
   stopDrive();
 }
 
+/*
+After a pet has been picked up, the robot will move backwards until QRD_LEFT
+is back on the tape
+*/
 void moveBack() {
   motor.speed(MOTOR_LEFT, -150);
   motor.speed(MOTOR_RIGHT, -150);
@@ -182,28 +223,9 @@ void moveBack() {
   stopDrive();
 }
 
-void setServo(int servo, int angle) {
-  if(servo == 0) {RCServo0.write(angle);}
-  else if(servo == 1) {RCServo1.write(angle);}
-  else {RCServo2.write(angle);}
-}
-
-void dropoff() {
-  ArmPID(HEIGHT, ARM_UP);
-  ArmPID(ANGLE, ARM_CENTRE);
-  setServo(SERVO_PLATE, 90);
-  while(digitalRead(SWITCH_PLATE) == LOW) {}
-  delay(500);
-  setServo(SERVO_PLATE, 0);
-}
-
-void pickup(int side) {
-  ArmPID(HEIGHT, ARM_UP);
-  ArmPID(ANGLE, side);
-  ArmPID(HEIGHT, ARM_DOWN);
-  dropoff();
-}
-
+/*
+After we pick up the 4th pet, we turn around until QRD_LEFT is back on the tape
+*/
 void turnAround() {
   int THRESHOLD = menuItems[4].Value;
   motor.speed(MOTOR_LEFT, -100);
@@ -213,6 +235,64 @@ void turnAround() {
   stopDrive();
 }
 
+/*
+=================
+== ARM CONTROL ==
+=================
+*/
+
+/*
+Sets the position of a servo to the specified angle
+Params:
+  Servo - servo we want to control
+  Angle - sets the servo to this angle
+*/
+void setServo(int servo, int angle) {
+  if(servo == 0) {RCServo0.write(angle);}
+  else if(servo == 1) {RCServo1.write(angle);}
+  else {RCServo2.write(angle);}
+}
+
+/*
+The arm moves up and to the centre of the box and then releases the pet 
+into the box
+*/
+void dropoff() {
+  ArmPID(HEIGHT, ARM_UP);
+  ArmPID(ANGLE, ARM_CENTRE);
+  setServo(SERVO_PLATE, 90);
+  while(digitalRead(SWITCH_PLATE) == LOW) {}
+  delay(500);
+  setServo(SERVO_PLATE, 0);
+}
+
+/*
+The arm will move to either the right or the left and then moves down.
+The arm will then dropoff the pet in the box.
+Params:
+  Side - the side of the robot we want to pick up on
+*/
+void pickup(int side) {
+  ArmPID(HEIGHT, ARM_UP);
+  ArmPID(ANGLE, side);
+  ArmPID(HEIGHT, ARM_DOWN);
+  dropoff();
+}
+
+/*
+========================
+== TAPE FOLLOWING PID ==
+========================
+*/
+
+// TODO: CLEAN UP MESSY CONTROL IF STATEMENTS
+
+/*
+PID control for tape following.
+For reference:
+  P - if too high can cause osscillations
+  D - acts as damping
+*/
 void PIDTape()
 {
   //Variables
@@ -232,7 +312,8 @@ void PIDTape()
   int duration_recent = 0; //Number of loops on recent error
   int duration_last = 0; //Number of loops on last error
   int compensation = 0; //Compensation
-
+  
+  // converting S into a value that is <255
   int spd = (int)((float)S*((float)255/(float)MAX_ANALOG));
 
   int WAIT_TIME = 800;
@@ -328,6 +409,24 @@ void PIDTape()
   }
 }
 
+/*
+=============
+== ARM PID ==
+=============
+*/
+
+// TODO: TUNE THIS CODE SO IT IS MORE RELIABLE
+
+/*
+PID control that operates on the homebrew servos.
+For reference:
+  P - value decreases as it gets closer to the deadband
+  D - acts as the damping force as we move closer to the deadband
+  I - helps push us into the deadband if the location is just outside
+Params:
+  dim - specifies which motor to use, either the horizontal (angle) or the vertical (hieght)
+  pos - the position to set the arm too
+*/
 void ArmPID(int dim, int pos)
 {
    //Set variables
@@ -337,7 +436,8 @@ void ArmPID(int dim, int pos)
     int maxI;
     int MOTOR;
     int PIN;
-
+    
+   // Need to specify the constants P,I or D depending on the dimension
    //Height
    if(dim == HEIGHT) {
       P_gain = P_HEIGHT;
@@ -404,7 +504,7 @@ void ArmPID(int dim, int pos)
 
        last_error = error;
 
-       // Break the loop if the
+       // TODO: not sure how well this is working
        if(error == 0) {
          target = millis();
          while(pot <= ( pos + deadband ) && pot >= ( pos - deadband)){
@@ -416,6 +516,16 @@ void ArmPID(int dim, int pos)
    }
 }
 
+/*
+==========
+== MENU ==
+==========
+*/
+
+/*
+Control code for the menu where we can adjust values to tune PID control
+(only for tape following)
+*/
 void Menu()
 {
   LCD.clear(); LCD.home();
