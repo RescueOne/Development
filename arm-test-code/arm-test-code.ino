@@ -89,13 +89,12 @@ int ANGLE = 2;
 
 void loop()
 { 
-  stopDrive();
   setServo(SERVO_PLATE, 0);
   
   LCD.clear(); LCD.home();
   LCD.print("Start: Menu");
   LCD.setCursor(0, 1);
-  LCD.print("Stop: PID");
+  LCD.print("Stop: Arm tune");
   delay(100);
  
   if (startbutton())
@@ -121,75 +120,11 @@ void mainStart()
 { 
   LCD.clear();
   while(true) {    
-      ArmPID(HEIGHT,ARM_UP);
+      // ArmPID(HEIGHT,ARM_UP);
       ArmPID(ANGLE,ARM_CENTRE);
-      pickup(ARM_RIGHT,ARM_UP);
+      ArmPID(ANGLE,ARM_RIGHT);
+      // pickup(ARM_RIGHT,ARM_UP);
   }
-}
-
-void Menu()
-{
-	LCD.clear(); LCD.home();
-	LCD.print("Entering menu");
-	delay(500);
- 
-	while (true)
-	{
-		/* Show MenuItem value and knob value */
-		int menuIndex = knob(6) * (MenuItem::MenuItemCount) / 1024;
-		LCD.clear(); LCD.home();
-		LCD.print(menuItems[menuIndex].Name); LCD.print(" "); LCD.print(menuItems[menuIndex].Value);
-		LCD.setCursor(0, 1);
-		LCD.print("Set to "); LCD.print(knob(7)); LCD.print("?");
-		delay(100);
- 
-		/* Press start button to save the new value */
-		if (startbutton())
-		{
-			delay(100);
-			if (startbutton())
-			{
-				menuItems[menuIndex].Value = knob(7);
-				menuItems[menuIndex].Save();
-				delay(250);
-			}
-		}
- 
-		/* Press stop button to exit menu */
-		if (stopbutton())
-		{
-			delay(100);
-			if (stopbutton())
-			{
-				LCD.clear(); LCD.home();
-				LCD.print("Leaving menu");
-				delay(500);
-				return;
-			}
-		}
-	}
-}
-
-void setServo(int servo, int angle) {
-  if(servo == 0) {RCServo0.write(angle);}
-  else if(servo == 1) {RCServo1.write(angle);}
-  else {RCServo2.write(angle);}
-}
-
-void dropoff() {
-  ArmPID(HEIGHT, ARM_UP);
-  ArmPID(ANGLE, ARM_CENTRE);
-  setServo(SERVO_PLATE, 90);
-  while(digitalRead(SWITCH_PLATE) == LOW) {}
-  delay(500);
-  setServo(SERVO_PLATE, 0);
-}
-
-void pickup(int side, int height) {  
-  ArmPID(HEIGHT, ARM_UP);
-  ArmPID(ANGLE, side);
-  ArmPID(HEIGHT, ARM_DOWN);
-  dropoff();
 }
 
 void ArmPID(int dim, int pos)
@@ -215,9 +150,9 @@ void ArmPID(int dim, int pos)
    }
    //Angle
    else {
-      P_gain = P_ANGLE;
-      I_gain = 10; // I_angle = 1
-      D_gain = 30;
+      P_gain = 10;
+      I_gain = 0; // I_angle = 1
+      D_gain = 0;
       max_speed = SPEED_ANGLE;
       maxI = I_MAX_ANGLE;
       MOTOR = MOTOR_CRANE_ANGLE;
@@ -245,11 +180,14 @@ void ArmPID(int dim, int pos)
    
    LCD.clear(); 
    
+  unsigned long last_integral_update_ms = 0;
+  const unsigned int integral_update_delay_ms = 5;
+
    while(true){
      
        LCD.home();
        LCD.print(pos); LCD.setCursor(0,1);
-       LCD.print(pot);
+       // LCD.print(pot);
      
        pot = analogRead(PIN);
        
@@ -262,8 +200,17 @@ void ArmPID(int dim, int pos)
        else { target = 0; }
       
        proportional = P_gain * error;
-       derivative = D_gain * (error - last_error);    
+       derivative = D_gain * (error - last_error);  
+
+      if (millis() > last_integral_update_ms + integral_update_delay_ms)
+      {
        integral = I_gain * error / 100.0 + integral;
+       last_integral_update_ms = millis(); 
+      }
+       
+
+        if ( derivative != 0.00) { LCD.print(derivative); delay(100);}
+        
        
        // handling integral gain
        if ( integral > maxI) { integral = maxI;}
@@ -281,13 +228,11 @@ void ArmPID(int dim, int pos)
 
        last_error = error;
           
-       // Break the loop if the 
-//       if(error == 0) {
-//         target = millis();
-//         while(pot <= ( pos + deadband ) && pot >= ( pos - deadband)){
-//           if(millis() - target > DELAY) {return;}
-//         }
-//       }
+       if (stopbutton())
+       {
+        delay(100);
+        if (stopbutton()) { return; }
+       }
        if ( target > 500 )
        {
          return;
@@ -295,4 +240,69 @@ void ArmPID(int dim, int pos)
         
        if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
    }
+}
+
+void setServo(int servo, int angle) {
+  if(servo == 0) {RCServo0.write(angle);}
+  else if(servo == 1) {RCServo1.write(angle);}
+  else {RCServo2.write(angle);}
+}
+
+void dropoff() {
+  ArmPID(HEIGHT, ARM_UP);
+  ArmPID(ANGLE, ARM_CENTRE);
+  setServo(SERVO_PLATE, 90);
+  while(digitalRead(SWITCH_PLATE) == LOW) {}
+  delay(500);
+  setServo(SERVO_PLATE, 0);
+}
+
+void pickup(int side, int height) {  
+  ArmPID(HEIGHT, ARM_UP);
+  ArmPID(ANGLE, side);
+  ArmPID(HEIGHT, ARM_DOWN);
+  dropoff();
+}
+
+void Menu()
+{
+  LCD.clear(); LCD.home();
+  LCD.print("Entering menu");
+  delay(500);
+ 
+  while (true)
+  {
+    /* Show MenuItem value and knob value */
+    int menuIndex = knob(6) * (MenuItem::MenuItemCount) / 1024;
+    LCD.clear(); LCD.home();
+    LCD.print(menuItems[menuIndex].Name); LCD.print(" "); LCD.print(menuItems[menuIndex].Value);
+    LCD.setCursor(0, 1);
+    LCD.print("Set to "); LCD.print(knob(7)); LCD.print("?");
+    delay(100);
+ 
+    /* Press start button to save the new value */
+    if (startbutton())
+    {
+      delay(100);
+      if (startbutton())
+      {
+        menuItems[menuIndex].Value = knob(7);
+        menuItems[menuIndex].Save();
+        delay(250);
+      }
+    }
+ 
+    /* Press stop button to exit menu */
+    if (stopbutton())
+    {
+      delay(100);
+      if (stopbutton())
+      {
+        LCD.clear(); LCD.home();
+        LCD.print("Leaving menu");
+        delay(500);
+        return;
+      }
+    }
+  }
 }
