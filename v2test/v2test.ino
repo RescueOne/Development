@@ -45,8 +45,8 @@ void setup()
 //TINAH Inputs
 
 //Motor
-int MOTOR_LEFT = 2; //PWM output for left motor
-int MOTOR_RIGHT = 3; //PWM output for right motor
+int MOTOR_LEFT = 3; //PWM output for left motor
+int MOTOR_RIGHT = 2; //PWM output for right motor
 int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
@@ -74,7 +74,7 @@ int I_HEIGHT = 24;
 int I_ANGLE = 1;
 int I_MAX_HEIGHT = 150;
 int I_MAX_ANGLE = 150;
-int ARM_UP = 920;
+int ARM_UP = 950;
 int ARM_HOR = 830;
 int ARM_DOWN = 700;
 int ARM_PICKUP = 600;
@@ -83,6 +83,7 @@ int ARM_CENTRE = 500;
 int ARM_RIGHT = 700;
 int DEADBAND = 15;
 int TURNAROUND_DELAY = 300;
+int PET_QRD_THRESHOLD = 300;
 
 //For reference
 int HEIGHT = 1;
@@ -118,6 +119,10 @@ void loop()
   }
 }
 
+/*
+Main loop that controls the robot and the specific code required to get each pet.
+NUM represents the pet/location
+*/
 void mainStart()
 {
   LCD.clear();
@@ -135,39 +140,45 @@ void mainStart()
       turnAround();
       PIDTape();
     }
-    if (NUM == 5) {
-      moveToPet();
+    if (NUM == 5 || NUM == 6 || NUM == 7) {
+//      moveToPet();
+      stopDrive();
       pickup(ARM_LEFT);
       PIDTape();
     }
-    if (NUM == 6 || NUM == 7) {
-      moveToPet();
-      pickup(ARM_LEFT);
-      moveBack();
-      PIDTape();
-    }
+//    if (NUM == 6 || NUM == 7) {
+//      moveToPet();
+//      pickup(ARM_LEFT);
+//      moveBack();
+//      PIDTape();
+//    }
   }
 }
 
+/*
+Stops the drive motors.
+*/
 void stopDrive() {
   motor.speed(MOTOR_LEFT, 0);
   motor.speed(MOTOR_RIGHT, 0);
 }
 
+/*
+When the front pet QRD senses the perpindicular tape, the robot drives forward
+until the back pet QRD senses the perpindicular tape.
+*/
 void moveToPet() {
-  int THRESHOLD = menuItems[4].Value;
   motor.speed(MOTOR_LEFT, 150);
   motor.speed(MOTOR_RIGHT, 150);
-//  while(analogRead(QRD_PET_BACK) < THRESHOLD) {}
+  while(analogRead(QRD_PET_BACK) < PET_QRD_THRESHOLD) {}
   delay(800);
   stopDrive();
 }
 
 void moveBack() {
-  int THRESHOLD = menuItems[4].Value;
   motor.speed(MOTOR_LEFT, -150);
   motor.speed(MOTOR_RIGHT, -150);
-  while(analogRead(QRD_LEFT) < THRESHOLD) {}
+  while(analogRead(QRD_LEFT) < PET_QRD_THRESHOLD) {}
   stopDrive();
 }
 
@@ -195,8 +206,8 @@ void pickup(int side) {
 
 void turnAround() {
   int THRESHOLD = menuItems[4].Value;
-  motor.speed(MOTOR_LEFT, 100);
-  motor.speed(MOTOR_RIGHT, -100);
+  motor.speed(MOTOR_LEFT, -100);
+  motor.speed(MOTOR_RIGHT, 100);
 //  delay(TURNAROUND_DELAY);
   while(analogRead(QRD_LEFT) < THRESHOLD) {}
   stopDrive();
@@ -212,6 +223,7 @@ void PIDTape()
   int qrd_left = 0; //Value of left qrd
   int qrd_right = 0; //Value of right qrd
   int qrd_pet_front = 0; //Value of pet qrd
+  int qrd_pet_back = 0; //Value of back pet QRD
   int error = 0; //Current error
   int last_error = 0; //Previous error
   int recent_error = 0; //Recent error
@@ -235,28 +247,35 @@ void PIDTape()
     qrd_left = analogRead(QRD_LEFT);
     qrd_right = analogRead(QRD_RIGHT);
     qrd_pet_front = analogRead(QRD_PET_FRONT);
+    qrd_pet_back = analogRead(QRD_PET_BACK);
 
     //Check if pet needs picking up
     if(count == 0){start_time = millis(); count++;}
     if((millis() - start_time) > WAIT_TIME) {
       if(NUM == 4) {
         if((millis() - start_time) > WAIT_TIME_LONG) {
-          if(qrd_pet_front > THRESHOLD) {
+          if(qrd_pet_front > PET_QRD_THRESHOLD) {
             NUM++;
             count--;
             LCD.setCursor(0,0); LCD.print(NUM);
             if(NUM == 4 || NUM == 5 || NUM == 6 || NUM == 7) {return;}
           }
         }
-      } else {
-        if(qrd_pet_front > THRESHOLD) {
+      } else if (NUM > 4) {
+        if(qrd_pet_back > PET_QRD_THRESHOLD) {
           NUM++;
           count--;
           LCD.setCursor(0,0); LCD.print(NUM);
           if(NUM == 4 || NUM == 5 || NUM == 6 || NUM == 7) {return;}
         }
-      }
-      
+      } else {
+        if(qrd_pet_front > PET_QRD_THRESHOLD) {
+          NUM++;
+          count--;
+          LCD.setCursor(0,0); LCD.print(NUM);
+          if(NUM == 4 || NUM == 5 || NUM == 6 || NUM == 7) {return;}
+        }
+      }     
     }
 
     /*Determine error
