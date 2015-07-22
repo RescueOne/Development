@@ -127,98 +127,6 @@ void mainStart()
   }
 }
 
-void PIDTape()
-{  
-  //Variables
-  int P = menuItems[1].Value; //Proportional gain value
-  int D = menuItems[2].Value; //Derivative gain value
-  int S = menuItems[0].Value; //Speed
-  int THRESHOLD = menuItems[4].Value; //threshold for switch from white to black
-  int qrd_left = 0; //Value of left qrd
-  int qrd_right = 0; //Value of right qrd
-  int qrd_pet = 0; //Value of pet qrd
-  int error = 0; //Current error
-  int last_error = 0; //Previous error
-  int recent_error = 0; //Recent error
-  int proportional = 0; //Proportional control
-  int derivative = 0; //Derivative control
-  int duration_recent = 0; //Number of loops on recent error
-  int duration_last = 0; //Number of loops on last error
-  int compensation = 0; //Compensation
-  
-  int spd = (int)((float)S*((float)255/(float)MAX_ANALOG));
-  
-  int WAIT_TIME = 300;
-  long start_time = 0;
-  int count = 0;
-  
-  //PID loop
-  while (true)
-  {
-    //Read QRD's
-    qrd_left = analogRead(QRD_LEFT);
-    qrd_right = analogRead(QRD_RIGHT);
-    qrd_pet = analogRead(QRD_PET_FRONT);
-    
-    //Check if pet needs picking up
-    if(count == 0){start_time = millis(); last_error = 5; count++;}
-    if ((millis() - start_time) > WAIT_TIME) {
-      if(qrd_pet > THRESHOLD) {
-        NUM++;
-        if(NUM == 1 || NUM == 2 || NUM == 3) {break;}
-      }
-    }
-    
-    /*Determine error
-    * <0 its to the left
-    * >0 its to the right
-    * 0 its dead on
-    */
-    
-    //left on white
-    if(qrd_left < THRESHOLD){
-      //right on white
-      if(qrd_right < THRESHOLD){
-        if(last_error < 0) {error = -5;LCD.setCursor(0,1);LCD.print("L2");}
-        else {error = 5;LCD.setCursor(0,1);LCD.print("R2");}
-      }
-      //right on black
-      else{error = -1;LCD.setCursor(0,1);LCD.print("L1");}
-    }
-    //left on black
-    else{
-      //right on white
-      if(qrd_right < THRESHOLD){error = 1;LCD.setCursor(0,1);LCD.print("R1");}
-      //right on black
-      else{error = 0;LCD.setCursor(0,1);LCD.print("CE");}
-    }
-    
-    //determine control factors
-    
-    //Proportional control
-    proportional = P*error;
-    
-    //Derivative
-    if(error != last_error){
-      recent_error = last_error;
-      duration_recent = duration_last;
-      last_error = error;
-      duration_last = 1;
-    }
-    else {
-      duration_last++;
-    }
-    derivative = (int)(((float)D*(float)(error - recent_error))/((float)(duration_recent + duration_last)));
-    
-    //Compensation
-    compensation = proportional + derivative;
-    
-    //Plant control (compensation +ve means move right)
-    motor.speed(MOTOR_LEFT,spd + compensation);
-    motor.speed(MOTOR_RIGHT,spd - compensation);
-  }
-}
-
 void Menu()
 {
 	LCD.clear(); LCD.home();
@@ -262,33 +170,6 @@ void Menu()
 	}
 }
 
-void stopDrive() {
-  motor.speed(MOTOR_LEFT, 0);
-  motor.speed(MOTOR_RIGHT, 0);
-}
-
-void moveToPet() {
-  int THRESHOLD = menuItems[4].Value;
-  LCD.clear(); LCD.home(); LCD.print(QRD_PET_BACK);
-  stopDrive();
-  delay(4000);
-  motor.speed(MOTOR_LEFT, 150);
-  motor.speed(MOTOR_RIGHT, 150);
-  while(analogRead(QRD_PET_BACK) < THRESHOLD) {}
-  stopDrive();
-}
-
-void moveBack() {
-  int THRESHOLD = menuItems[4].Value;
-  LCD.clear(); LCD.home(); LCD.print(QRD_LEFT);
-  stopDrive();
-  delay(4000);
-  motor.speed(MOTOR_LEFT, -150);
-  motor.speed(MOTOR_RIGHT, -150);
-  while(analogRead(QRD_LEFT) < THRESHOLD) {}
-  stopDrive();
-}
-
 void setServo(int servo, int angle) {
   if(servo == 0) {RCServo0.write(angle);}
   else if(servo == 1) {RCServo1.write(angle);}
@@ -309,17 +190,6 @@ void pickup(int side, int height) {
   ArmPID(ANGLE, side);
   ArmPID(HEIGHT, ARM_DOWN);
   dropoff();
-}
-
-void turnAround() {
-  int THRESHOLD = menuItems[4].Value;
-  LCD.clear(); LCD.home(); LCD.print("TURNING");
-  delay(2000);
-  motor.speed(MOTOR_LEFT, -100);
-  motor.speed(MOTOR_RIGHT, 100);
-//  delay(TURNAROUND_DELAY);
-  while(analogRead(QRD_LEFT) < THRESHOLD) {}
-  stopDrive();
 }
 
 void ArmPID(int dim, int pos)
@@ -346,8 +216,8 @@ void ArmPID(int dim, int pos)
    //Angle
    else {
       P_gain = P_ANGLE;
-      I_gain = I_ANGLE;
-      D_gain = 4;
+      I_gain = 10; // I_angle = 1
+      D_gain = 30;
       max_speed = SPEED_ANGLE;
       maxI = I_MAX_ANGLE;
       MOTOR = MOTOR_CRANE_ANGLE;
