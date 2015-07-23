@@ -90,7 +90,7 @@ int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 //For Arm PID
 int MAX_ANALOG = 1023;
-int SPEED_HEIGHT = 150;
+int SPEED_HEIGHT = 100;
 int SPEED_ANGLE = 50;
 int P_HEIGHT = 20;
 int P_ANGLE = 1;
@@ -108,7 +108,7 @@ int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
 int ARM_RIGHT = 700;
 int DEADBAND = 15;
-int PET_QRD_THRESHOLD = 250;
+int PET_QRD_THRESHOLD = 300;
 
 //For reference
 int HEIGHT = 1;
@@ -174,7 +174,6 @@ NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
 */
 void mainStart() {
-  LCD.clear();
   while(true) {
     // at the start, sets the arm to fit in the door then runs PID code
     if (NUM == 0) {
@@ -184,17 +183,24 @@ void mainStart() {
       PIDTape();
     }
     if (NUM == 4) {
-      LCD.setCursor(0,0); LCD.print(NUM);
       stopDrive();
-      turnAround();
+      moveTo(200, 30, true);
       NUM++;
       PIDTape();
     }
-    if (NUM == 6 || NUM == 7 || NUM == 8) {
-      moveToPet();
+    if (NUM == 6) {
+      moveTo(0, 10, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      moveBack();
+      moveTo(-90, 20, true);
+      PIDTape();
+    }
+    if (NUM == 7 || NUM == 8) {
+      moveTo(0, 10, false);
+      moveTo(20, 10, false);
+      ArmPID(HEIGHT,ARM_UP);
+      pickup(ARM_LEFT);
+      moveTo(-90, 20, true);
       PIDTape();
     }
   }
@@ -221,8 +227,8 @@ until the back pet QRD senses the perpindicular tape.
 void moveToPet() {
   motor.speed(MOTOR_LEFT, 150);
   motor.speed(MOTOR_RIGHT, 150);
-  if(NUM == 5) {delay(500);}
-  if(NUM == 6 || NUM == 7) {delay(700);}
+  if(NUM == 6) {delay(500);}
+  if(NUM == 7 || NUM == 8) {delay(700);}
   //  while(analogRead(QRD_PET_BACK) < PET_QRD_THRESHOLD) {}
   stopDrive();
 }
@@ -255,7 +261,9 @@ Move the robot to a position based on a given angle and distance
 +ve angle turns left
 -ve angle turns right
 */
-void moveTo(int angle, float distance) {
+void moveTo(int angle, float distance, bool tape) {
+  //Vars
+  int THRESHOLD = menuItems[4].Value;
   //First change angle
   int angleSpeed = 100;
   int linSpeed = 150;
@@ -273,6 +281,7 @@ void moveTo(int angle, float distance) {
   }
   // LCD.clear(); LCD.home(); LCD.print("Turning");
   while(leftDone == false || rightDone == false) {
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
     // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
@@ -284,6 +293,7 @@ void moveTo(int angle, float distance) {
   else {motor.speed(MOTOR_LEFT,-1*linSpeed); motor.speed(MOTOR_RIGHT,-1*linSpeed);}
   // LCD.clear(); LCD.home(); LCD.print("Moving");
   while(leftDone == false || rightDone == false) {
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
     // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
@@ -364,6 +374,9 @@ For reference:
   D - acts as damping
   */
 void PIDTape() {
+  LCD.home();
+  LCD.print("NUM");
+
   //Variables
   int P = menuItems[1].Value; //Proportional gain value
   int D = menuItems[2].Value; //Derivative gain value
@@ -404,7 +417,7 @@ void PIDTape() {
       if(qrd_pet_front > PET_QRD_THRESHOLD) {
         NUM++;
         count--;
-        LCD.setCursor(0,0); LCD.print(NUM);
+        LCD.setCursor(0,1); LCD.print(NUM);
         if(NUM == 4 || NUM == 6 || NUM == 7 || NUM == 8) {return;}
       }
     }
@@ -419,18 +432,18 @@ void PIDTape() {
     if(qrd_left < THRESHOLD) {
       //right on white
       if(qrd_right < THRESHOLD) {
-        if(last_error < 0) {error = -5;LCD.setCursor(0,1);LCD.print("L2");}
-        else {error = 5;LCD.setCursor(0,1);LCD.print("R2");}
+        if(last_error < 0) {error = -5;} //LCD.setCursor(0,1);LCD.print("L2");
+        else {error = 5;} //LCD.setCursor(0,1);LCD.print("R2");
       }
       //right on black
-      else{error = -1;LCD.setCursor(0,1);LCD.print("L1");}
+      else{error = -1;} //LCD.setCursor(0,1);LCD.print("L1");
     }
     //left on black
     else {
       //right on white
-      if(qrd_right < THRESHOLD){error = 1;LCD.setCursor(0,1);LCD.print("R1");}
+      if(qrd_right < THRESHOLD){error = 1;} //LCD.setCursor(0,1);LCD.print("R1");
       //right on black
-      else{error = 0;LCD.setCursor(0,1);LCD.print("CE");}
+      else{error = 0;} //LCD.setCursor(0,1);LCD.print("CE");
     }
 
     //determine control factors
@@ -482,38 +495,38 @@ void ArmPID(int dim, int pos) {
   //Set variables
   int P_gain;
   int I_gain;
-  int D_gain;
   int max_speed;
   int maxI;
   int MOTOR;
   int PIN;
+  int D_gain = 0;
 
-  // Need to specify the constants P,I or D depending on the dimension
   //Height
   if(dim == HEIGHT) {
     P_gain = P_HEIGHT;
+    D_gain = D_HEIGHT;
     I_gain = I_HEIGHT;
     max_speed = SPEED_HEIGHT;
     maxI = I_MAX_HEIGHT;
     MOTOR = MOTOR_CRANE_HEIGHT;
     PIN = POTENTIOMETER_CRANE_HEIGHT;
   }
-
   //Angle
   else {
     P_gain = P_ANGLE;
-    I_gain = I_ANGLE;
+    I_gain = I_ANGLE; // I_angle = 1
+    D_gain = D_ANGLE;
     max_speed = SPEED_ANGLE;
     maxI = I_MAX_ANGLE;
     MOTOR = MOTOR_CRANE_ANGLE;
     PIN = POTENTIOMETER_CRANE_ANGLE;
-  }
+   }
 
   // Variables
   int pot = 0;
   int count = 0;
-  unsigned int target = 0;
-  const int deadband = DEADBAND;
+  int target = 0;
+  int deadband = DEADBAND;
 
   // PID variables
   float proportional = 0;
@@ -522,13 +535,17 @@ void ArmPID(int dim, int pos) {
   float compensator = 0;
 
   // Errors
-  double error = 0;
-  double last_error = 0;
+  float error = 0;
+  float last_error = 0;
+
+  unsigned long last_integral_update_ms = 0;
+  const unsigned int integral_update_delay_ms = 5;
 
   while(true){
+
     pot = analogRead(PIN);
 
-    error = (pot-pos) / 10.0;
+    error = (pot - pos) / 10.0;
 
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
       error = 0;
@@ -537,7 +554,8 @@ void ArmPID(int dim, int pos) {
     else { target = 0; }
 
     proportional = P_gain * error;
-    integral = I_gain * error + integral;
+    derivative = D_gain * (error - last_error);
+    integral = I_gain * (error) + integral;
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}
@@ -547,6 +565,7 @@ void ArmPID(int dim, int pos) {
     compensator = proportional + integral + derivative;
 
     // setting max speed for the small motor
+
     if( compensator > max_speed) compensator = max_speed;
     if( compensator < -max_speed) compensator = -max_speed;
 
