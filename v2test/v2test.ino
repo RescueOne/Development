@@ -78,7 +78,7 @@ int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
 int SERVO_PLATE = 0; //Servo to drop pet
 
 //Digital
-int SWITCH_PLATE = 2; //Switch to see if pet is on plate
+int SWITCH_PLATE = 3; //Switch to see if pet is on plate
 int ROT_LEFT = 0; //Rotary encoder for left wheel
 int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
@@ -90,7 +90,7 @@ int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 //For Arm PID
 int MAX_ANALOG = 1023;
-int SPEED_HEIGHT = 100;
+int SPEED_HEIGHT = 120;
 int SPEED_ANGLE = 50;
 int P_HEIGHT = 20;
 int P_ANGLE = 1;
@@ -108,7 +108,7 @@ int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
 int ARM_RIGHT = 700;
 int DEADBAND = 15;
-int PET_QRD_THRESHOLD = 300;
+int PET_QRD_THRESHOLD = 400;
 
 //For reference
 int HEIGHT = 1;
@@ -174,6 +174,8 @@ NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
 */
 void mainStart() {
+  LCD.clear(); LCD.home();
+  LCD.print("NUM");
   while(true) {
     // at the start, sets the arm to fit in the door then runs PID code
     if (NUM == 0) {
@@ -184,23 +186,26 @@ void mainStart() {
     }
     if (NUM == 4) {
       stopDrive();
+      moveTo(-30, 30, false);
       moveTo(200, 30, true);
       NUM++;
       PIDTape();
     }
     if (NUM == 6) {
+      stopDrive();
       moveTo(0, 10, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      moveTo(-90, 20, true);
+      findTape();
       PIDTape();
     }
     if (NUM == 7 || NUM == 8) {
-      moveTo(0, 10, false);
-      moveTo(20, 10, false);
+      stopDrive();
+      moveTo(0, 20, false);
+      moveTo(-5, 5, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      moveTo(-90, 20, true);
+      findTape();
       PIDTape();
     }
   }
@@ -221,39 +226,16 @@ void stopDrive() {
 }
 
 /*
-When the front pet QRD senses the perpindicular tape, the robot drives forward
-until the back pet QRD senses the perpindicular tape.
+Moves left and right until it finds tape again
 */
-void moveToPet() {
-  motor.speed(MOTOR_LEFT, 150);
-  motor.speed(MOTOR_RIGHT, 150);
-  if(NUM == 6) {delay(500);}
-  if(NUM == 7 || NUM == 8) {delay(700);}
-  //  while(analogRead(QRD_PET_BACK) < PET_QRD_THRESHOLD) {}
-  stopDrive();
-}
-
-/*
-After a pet has been picked up, the robot will move backwards until QRD_LEFT
-is back on the tape
-*/
-void moveBack() {
-  motor.speed(MOTOR_LEFT, -150);
-  motor.speed(MOTOR_RIGHT, -150);
-  while(analogRead(QRD_LEFT) < PET_QRD_THRESHOLD) {}
-  stopDrive();
-}
-
-/*
-After we pick up the 4th pet, we turn around until QRD_LEFT is back on the tape
-*/
-void turnAround() {
+void findTape() {
   int THRESHOLD = menuItems[4].Value;
-  motor.speed(MOTOR_LEFT, -100);
-  motor.speed(MOTOR_RIGHT, 100);
-  //  delay(TURNAROUND_DELAY);
-  while(analogRead(QRD_LEFT) < THRESHOLD) {}
-  stopDrive();
+  moveTo(-30,0,true);
+  while(analogRead(QRD_LEFT) < THRESHOLD) {
+    moveTo(60,0,true);
+    if(analogRead(QRD_LEFT) > THRESHOLD) {return;}
+    moveTo(-60,0,true);
+  }
 }
 
 /*
@@ -264,6 +246,7 @@ Move the robot to a position based on a given angle and distance
 void moveTo(int angle, float distance, bool tape) {
   //Vars
   int THRESHOLD = menuItems[4].Value;
+  int DELAY = 500;
   //First change angle
   int angleSpeed = 100;
   int linSpeed = 150;
@@ -275,27 +258,37 @@ void moveTo(int angle, float distance, bool tape) {
   if (angle > 0) {
     motor.speed(MOTOR_LEFT, -1*angleSpeed);
     motor.speed(MOTOR_RIGHT, angleSpeed);
+  } else if (angle == 0) {
+    stopDrive();
   } else {
     motor.speed(MOTOR_LEFT, angleSpeed);
     motor.speed(MOTOR_RIGHT, -1*angleSpeed);
   }
-  // LCD.clear(); LCD.home(); LCD.print("Turning");
-  while(leftDone == false || rightDone == false) {
-    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
+  long startTurn = millis();
+  LCD.clear(); LCD.home(); LCD.print("Turning");
+  while((leftDone == false || rightDone == false) && angle != 0) {
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD && millis() - startTurn > DELAY) {return;}
     checkEnc();
-    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
     if(TURNS_RIGHT == angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
   TURNS_LEFT = 0; TURNS_RIGHT = 0;
   leftDone = false; rightDone = false;
-  if (distance > 0) {motor.speed(MOTOR_LEFT,linSpeed); motor.speed(MOTOR_RIGHT, linSpeed);}
-  else {motor.speed(MOTOR_LEFT,-1*linSpeed); motor.speed(MOTOR_RIGHT,-1*linSpeed);}
-  // LCD.clear(); LCD.home(); LCD.print("Moving");
-  while(leftDone == false || rightDone == false) {
+  if (distance > 0) {
+    motor.speed(MOTOR_LEFT,linSpeed);
+    motor.speed(MOTOR_RIGHT, linSpeed);
+  } else if (distance == 0) {
+    stopDrive();
+  } else {
+    motor.speed(MOTOR_LEFT,-1*linSpeed);
+    motor.speed(MOTOR_RIGHT,-1*linSpeed);
+  }
+  LCD.clear(); LCD.home(); LCD.print("Moving");
+  while((leftDone == false || rightDone == false) && distance != 0) {
     if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
-    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
     if(TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
@@ -324,14 +317,14 @@ void checkEnc() {
 /*
 Sets the position of a servo to the specified angle
 Params:
-  Servo - servo we want to control
-  Angle - sets the servo to this angle
-  */
-  void setServo(int servo, int angle) {
-    if(servo == 0) {RCServo0.write(angle);}
-    else if(servo == 1) {RCServo1.write(angle);}
-    else {RCServo2.write(angle);}
-  }
+Servo - servo we want to control
+Angle - sets the servo to this angle
+*/
+void setServo(int servo, int angle) {
+  if(servo == 0) {RCServo0.write(angle);}
+  else if(servo == 1) {RCServo1.write(angle);}
+  else {RCServo2.write(angle);}
+}
 
 /*
 The arm moves up and to the centre of the box and then releases the pet
@@ -350,14 +343,14 @@ void dropoff() {
 The arm will move to either the right or the left and then moves down.
 The arm will then dropoff the pet in the box.
 Params:
-  Side - the side of the robot we want to pick up on
-  */
-  void pickup(int side) {
-    ArmPID(HEIGHT, ARM_UP);
-    ArmPID(ANGLE, side);
-    ArmPID(HEIGHT, ARM_DOWN);
-    dropoff();
-  }
+Side - the side of the robot we want to pick up on
+*/
+void pickup(int side) {
+  ArmPID(HEIGHT, ARM_UP);
+  ArmPID(ANGLE, side);
+  ArmPID(HEIGHT, ARM_DOWN);
+  dropoff();
+}
 
 /*
 ========================
@@ -374,7 +367,7 @@ For reference:
   D - acts as damping
   */
 void PIDTape() {
-  LCD.home();
+  LCD.clear(); LCD.home();
   LCD.print("NUM");
 
   //Variables
