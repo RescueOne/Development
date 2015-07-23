@@ -117,7 +117,6 @@ int ANGLE = 2;
 //For rot encoder
 float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
 float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
-float PI = 3.14;
 int TURNS_LEFT = 0;
 int TURNS_RIGHT = 0;
 int prev_enc_left = 0;
