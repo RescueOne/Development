@@ -80,7 +80,7 @@ int ARM_PICKUP = 600;
 int ARM_LEFT = 250;
 int ARM_CENTRE = 500;
 int ARM_RIGHT = 730;
-int DEADBAND = 10;
+int DEADBAND = 15;
 int TURNAROUND_DELAY = 300;
 
 //For reference
@@ -120,10 +120,10 @@ void mainStart()
 {
   LCD.clear();
   while(true) {
-      // ArmPID(HEIGHT,ARM_UP);
+      ArmPID(HEIGHT,ARM_UP);
       ArmPID(ANGLE,ARM_CENTRE);
       ArmPID(ANGLE,ARM_RIGHT);
-      // pickup(ARM_RIGHT,ARM_UP);
+      pickup(ARM_RIGHT,ARM_UP);
   }
 }
 
@@ -150,10 +150,10 @@ void ArmPID(int dim, int pos)
    }
    //Angle
    else {
-      P_gain = 0;
-      I_gain = 10; // I_angle = 1
+      P_gain = 1;
+      I_gain = 1; // I_angle = 1
       D_gain = 0;
-      max_speed = 70;
+      max_speed = 50;
       maxI = I_MAX_ANGLE;
       MOTOR = MOTOR_CRANE_ANGLE;
       PIN = POTENTIOMETER_CRANE_ANGLE;
@@ -162,22 +162,18 @@ void ArmPID(int dim, int pos)
     // Variables
    int pot = 0;
    int count = 0;
-   long target = 0;
+   int target = 0;
    int deadband = DEADBAND;
 
    // PID variables
-   double proportional = 0;
-   double integral = 0;
-   double derivative = 0;
-   double compensator = 0;
+   float proportional = 0;
+   float integral = 0;
+   float derivative = 0;
+   float compensator = 0;
 
    // Errors
-   double error = 0;
-   double last_error = 0;
-
-   // Timing
-   int last_loop = 0;
-   int dt = 0;
+   float error = 0;
+   float last_error = 0;
 
    LCD.clear();
 
@@ -186,24 +182,13 @@ void ArmPID(int dim, int pos)
 
    while(true){
 
-      dt = millis() - last_loop;
-      last_loop = millis();
-
-       // LCD.clear(); LCD.home();
-       // LCD.print(pos); LCD.setCursor(0,1);
-       // LCD.print(pot);
-
-       P_gain = analogRead(7) / 10;
-       D_gain = analogRead(6) / 10;
-
-       if (count > 300){
-        LCD.clear(); LCD.home();
-         LCD.print(P_gain); LCD.setCursor(0,1);
-         LCD.print(D_gain);
-        count = 0;
+       if (count > 500){
+          LCD.clear(); LCD.home();
+          LCD.print(pos); LCD.setCursor(0,1);
+          LCD.print(pot);
+          count = 0;
        }
        count++;
-
 
        pot = analogRead(PIN);
 
@@ -216,13 +201,13 @@ void ArmPID(int dim, int pos)
        else { target = 0; }
 
        proportional = P_gain * error;
-       derivative = D_gain * (error - last_error)/dt;
-       integral = I_gain * (error*dt + integral);
+       derivative = D_gain * (error - last_error);
+       integral = I_gain * (error) + integral;
 
        // handling integral gain
        if ( integral > maxI) { integral = maxI;}
        if ( integral < -maxI) { integral = -maxI;}
-       if( error == 0) { integral = 0; derivative = 0;}
+       if( error == 0) { integral = 0; }
 
        compensator = proportional + integral + derivative;
 
@@ -235,11 +220,6 @@ void ArmPID(int dim, int pos)
 
        last_error = error;
 
-       if (stopbutton())
-       {
-        delay(100);
-        if (stopbutton()) { return; }
-       }
        if ( target > 1000 )
        {
          return;
@@ -247,7 +227,7 @@ void ArmPID(int dim, int pos)
 
        if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
    }
-}
+  }
 
 void setServo(int servo, int angle) {
   if(servo == 0) {RCServo0.write(angle);}
