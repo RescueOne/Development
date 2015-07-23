@@ -117,7 +117,6 @@ int ANGLE = 2;
 //For rot encoder
 float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
 float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
-float PI = 3.14;
 int TURNS_LEFT = 0;
 int TURNS_RIGHT = 0;
 int prev_enc_left = 0;
@@ -260,31 +259,35 @@ void moveTo(int angle, float distance) {
   //First change angle
   int angleSpeed = 100;
   int linSpeed = 150;
-  int angleTurns = ceil((angle*((LENGTH_OF_AXLE*PI)/360))/DIST_PER_TAPE);
-  int linTurns = ceil(distance/DIST_PER_TAPE);
+  int angleTurns = ceil((abs(angle)*((LENGTH_OF_AXLE*PI)/360))/DIST_PER_TAPE);
+  int linTurns = ceil(abs(distance)/DIST_PER_TAPE);
   bool leftDone = false;
   bool rightDone = false;
   TURNS_RIGHT = 0; TURNS_LEFT = 0;
   if (angle > 0) {
-    motor.speed(MOTOR_LEFT, -1*turnSpeed);
-    motor.speed(MOTOR_RIGHT, turnSpeed);
+    motor.speed(MOTOR_LEFT, -1*angleSpeed);
+    motor.speed(MOTOR_RIGHT, angleSpeed);
   } else {
-    motor.speed(MOTOR_LEFT, turnSpeed);
-    motor.speed(MOTOR_RIGHT, -1*turnSpeed);
+    motor.speed(MOTOR_LEFT, angleSpeed);
+    motor.speed(MOTOR_RIGHT, -1*angleSpeed);
   }
+  // LCD.clear(); LCD.home(); LCD.print("Turning");
   while(leftDone == false || rightDone == false) {
     checkEnc();
-    if((TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
-    if((TURNS_RIGHT == angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
+    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    if(TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
+    if(TURNS_RIGHT == angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
   TURNS_LEFT = 0; TURNS_RIGHT = 0;
   leftDone = false; rightDone = false;
   if (distance > 0) {motor.speed(MOTOR_LEFT,linSpeed); motor.speed(MOTOR_RIGHT, linSpeed);}
   else {motor.speed(MOTOR_LEFT,-1*linSpeed); motor.speed(MOTOR_RIGHT,-1*linSpeed);}
+  // LCD.clear(); LCD.home(); LCD.print("Moving");
   while(leftDone == false || rightDone == false) {
     checkEnc();
-    if((TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
-    if((TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
+    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
+    if(TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
 }
 
@@ -293,15 +296,14 @@ Check encoders and update turns
 */
 void checkEnc() {
   cur_enc_left = digitalRead(ROT_LEFT); cur_enc_right = digitalRead(ROT_RIGHT);
-  if(prev_enc_left == HI && cur_enc_left == LOW) {
+  if(prev_enc_left == HIGH && cur_enc_left == LOW) {
     TURNS_LEFT++;
   }
-  if(prev_enc_right == HI && cur_enc_right == LOW) {
+  if(prev_enc_right == HIGH && cur_enc_right == LOW) {
     TURNS_RIGHT++;
   }
   prev_enc_left = cur_enc_left; prev_enc_right = cur_enc_right;
 }
-
 
 /*
 =================
