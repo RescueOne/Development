@@ -61,62 +61,81 @@ void setup()
 */
 
 //Motor
-int MOTOR_LEFT = 3; //PWM output for left motor
-int MOTOR_RIGHT = 2; //PWM output for right motor
-int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
-int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
+const int MOTOR_LEFT = 3; //PWM output for left motor
+const int MOTOR_RIGHT = 2; //PWM output for right motor
+const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
+const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
-int QRD_LEFT = 1; //Left QRD for tape following
-int QRD_RIGHT = 0; //Right QRD for tape following
-int QRD_PET_BACK = 2; //QRD for locating pets back
-int QRD_PET_FRONT = 3; //QRD for locating pets front
-int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
-int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
+const int QRD_LEFT = 1; //Left QRD for tape following
+const int QRD_RIGHT = 0; //Right QRD for tape following
+const int QRD_PET_BACK = 2; //QRD for locating pets back
+const int QRD_PET_FRONT = 3; //QRD for locating pets front
+const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
+const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
 
 //Servo
-int SERVO_PLATE = 0; //Servo to drop pet
+const int SERVO_PLATE = 0; //Servo to drop pet
 
 //Digital
-int SWITCH_PLATE = 3; //Switch to see if pet is on plate
-int ROT_LEFT = 0; //Rotary encoder for left wheel
-int ROT_RIGHT = 1; //Rotary encoder for right wheel
+const int SWITCH_PLATE = 3; //Switch to see if pet is on plate
+const int ROT_LEFT = 0; //Rotary encoder for left wheel
+const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 /*
-===============
-== CONSTANTS ==
-===============
+===========================
+== ARM CONTROL CONSTANTS ==
+===========================
 */
 
-//For Arm PID
-int MAX_ANALOG = 1023;
-int SPEED_HEIGHT = 120;
-int SPEED_ANGLE = 50;
-int P_HEIGHT = 20;
-int P_ANGLE = 1;
-int I_HEIGHT = 24;
-int I_ANGLE = 1;
-int I_MAX_HEIGHT = 150;
-int I_MAX_ANGLE = 150;
-int D_HEIGHT = 0;
-int D_ANGLE = 4;
-int ARM_UP = 950;
-int ARM_HOR = 830;
-int ARM_DOWN = 700;
-int ARM_PICKUP = 600;
-int ARM_LEFT = 250;
-int ARM_CENTRE = 500;
-int ARM_RIGHT = 700;
-int DEADBAND = 15;
-int PET_QRD_THRESHOLD = 400;
+// Angle -> horizontal movement of the arm
+// Height -> vertical movement of the arm
+
+// Speed
+const int SPEED_HEIGHT = 120;
+const int SPEED_ANGLE = 50;
+
+// PID Constants
+const int P_HEIGHT = 20;
+const int P_ANGLE = 1;
+const int I_HEIGHT = 24;
+const int I_ANGLE = 1;
+const int I_MAX_HEIGHT = 150;
+const int I_MAX_ANGLE = 150;
+const int D_HEIGHT = 0;
+const int D_ANGLE = 4;
+
+// Positions
+const int ARM_UP = 950;
+const int ARM_HOR = 830;
+const int ARM_DOWN = 700;
+const int ARM_PICKUP = 600;
+const int ARM_LEFT = 250;
+const int ARM_CENTRE = 500;
+const int ARM_RIGHT = 700;
+
+// Range of where the arm will be in an "error-free" zero
+const int DEADBAND = 15;
+
+// Other
+const int MAX_ANALOG = 1023; // for converting arduino resolution to speed
+const int PET_QRD_THRESHOLD = 400; // when the arm will stop to pick up pets
 
 //For reference
-int HEIGHT = 1;
-int ANGLE = 2;
+const int HEIGHT = 1;
+const int ANGLE = 2;
 
-//For rot encoder
-float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
-float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
+/*
+===============================
+== ROTARY ENCORDER CONSTANTS ==
+===============================
+*/
+
+// wheel dimensions
+const float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
+const float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
+
+// Variables
 int TURNS_LEFT = 0;
 int TURNS_RIGHT = 0;
 int prev_enc_left = 0;
@@ -173,7 +192,8 @@ NUM == 6; At 3rd pet
 NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
 */
-void mainStart() {
+void mainStart() 
+{
   LCD.clear(); LCD.home();
   LCD.print("NUM");
   while(true) {
@@ -220,7 +240,8 @@ void mainStart() {
 /*
 Stops the drive motors.
 */
-void stopDrive() {
+void stopDrive() 
+{
   motor.speed(MOTOR_LEFT, 0);
   motor.speed(MOTOR_RIGHT, 0);
 }
@@ -228,7 +249,8 @@ void stopDrive() {
 /*
 Moves left and right until it finds tape again
 */
-void findTape() {
+void findTape() 
+{
   int THRESHOLD = menuItems[4].Value;
   moveTo(-30,0,true);
   while(analogRead(QRD_LEFT) < THRESHOLD) {
@@ -239,11 +261,18 @@ void findTape() {
 }
 
 /*
+====================
+== ROTARY ENCODER ==
+====================
+*/
+
+/*
 Move the robot to a position based on a given angle and distance
 +ve angle turns left
 -ve angle turns right
 */
-void moveTo(int angle, float distance, bool tape) {
+void moveTo(int angle, float distance, bool tape) 
+{
   //Vars
   int THRESHOLD = menuItems[4].Value;
   int DELAY = 500;
@@ -297,14 +326,14 @@ void moveTo(int angle, float distance, bool tape) {
 /*
 Check encoders and update turns
 */
-void checkEnc() {
-  cur_enc_left = digitalRead(ROT_LEFT); cur_enc_right = digitalRead(ROT_RIGHT);
-  if(prev_enc_left == HIGH && cur_enc_left == LOW) {
-    TURNS_LEFT++;
-  }
-  if(prev_enc_right == HIGH && cur_enc_right == LOW) {
-    TURNS_RIGHT++;
-  }
+void checkEnc() 
+{
+  cur_enc_left = digitalRead(ROT_LEFT); 
+  cur_enc_right = digitalRead(ROT_RIGHT);
+
+  if(prev_enc_left == HIGH && cur_enc_left == LOW) { TURNS_LEFT++; }
+  if(prev_enc_right == HIGH && cur_enc_right == LOW) { TURNS_RIGHT++; }
+
   prev_enc_left = cur_enc_left; prev_enc_right = cur_enc_right;
 }
 
@@ -320,7 +349,8 @@ Params:
 Servo - servo we want to control
 Angle - sets the servo to this angle
 */
-void setServo(int servo, int angle) {
+void setServo(int servo, int angle) 
+{
   if(servo == 0) {RCServo0.write(angle);}
   else if(servo == 1) {RCServo1.write(angle);}
   else {RCServo2.write(angle);}
@@ -330,7 +360,8 @@ void setServo(int servo, int angle) {
 The arm moves up and to the centre of the box and then releases the pet
 into the box
 */
-void dropoff() {
+void dropoff() 
+{
   ArmPID(HEIGHT, ARM_UP);
   ArmPID(ANGLE, ARM_CENTRE);
   setServo(SERVO_PLATE, 90);
@@ -345,7 +376,8 @@ The arm will then dropoff the pet in the box.
 Params:
 Side - the side of the robot we want to pick up on
 */
-void pickup(int side) {
+void pickup(int side) 
+{
   ArmPID(HEIGHT, ARM_UP);
   ArmPID(ANGLE, side);
   ArmPID(HEIGHT, ARM_DOWN);
@@ -366,7 +398,8 @@ For reference:
   P - if too high can cause osscillations
   D - acts as damping
   */
-void PIDTape() {
+void PIDTape() 
+{
   LCD.clear(); LCD.home();
   LCD.print("NUM");
 
@@ -484,7 +517,8 @@ Params:
   pos - the position to set the arm too
 */
 
-void ArmPID(int dim, int pos) {
+void ArmPID(int dim, int pos) 
+{
   //Set variables
   int P_gain;
   int I_gain;
@@ -584,7 +618,8 @@ void ArmPID(int dim, int pos) {
 Control code for the menu where we can adjust values to tune PID control
 (only for tape following)
 */
-void Menu() {
+void Menu() 
+{
   LCD.clear(); LCD.home();
   LCD.print("Entering menu");
   delay(500);
