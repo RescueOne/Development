@@ -93,7 +93,7 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 // Speed
 const int SPEED_HEIGHT = 120;
-const int SPEED_ANGLE = 50;
+const int SPEED_ANGLE = 65;
 
 // PID Constants
 const int P_HEIGHT = 20;
@@ -113,11 +113,15 @@ const int ARM_PICKUP = 600;
 const int ARM_LEFT = 250;
 const int ARM_CENTRE = 500;
 const int ARM_RIGHT = 700;
+const int SHIFT = 5; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
-const int DEADBAND = 15;
+const int DEADBAND_HEIGHT = 15;
+const int DEADBAND_ANGLE = 25;
 
 // Other
+const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
+const int MAX_TIME_SHORT = 1000; //Max time the arm can move down for pickup (high pet)
 const int MAX_ANALOG = 1023; // for converting arduino resolution to speed
 const int PET_QRD_THRESHOLD = 400; // when the arm will stop to pick up pets
 
@@ -132,7 +136,7 @@ const int ANGLE = 2;
 */
 
 // wheel dimensions
-const float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
+const float DIST_PER_TAPE = PI; //Distance wheel moves per tape hit (cm)
 const float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
 
 // Variables
@@ -192,7 +196,7 @@ NUM == 6; At 3rd pet
 NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
 */
-void mainStart() 
+void mainStart()
 {
   LCD.clear(); LCD.home();
   LCD.print("NUM");
@@ -221,8 +225,8 @@ void mainStart()
     }
     if (NUM == 7 || NUM == 8) {
       stopDrive();
-      moveTo(0, 20, false);
-      moveTo(-5, 5, false);
+      moveTo(0, 25, false);
+      moveTo(-5, 8, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
       findTape();
@@ -240,7 +244,7 @@ void mainStart()
 /*
 Stops the drive motors.
 */
-void stopDrive() 
+void stopDrive()
 {
   motor.speed(MOTOR_LEFT, 0);
   motor.speed(MOTOR_RIGHT, 0);
@@ -249,15 +253,20 @@ void stopDrive()
 /*
 Moves left and right until it finds tape again
 */
-void findTape() 
+void findTape()
 {
   int THRESHOLD = menuItems[4].Value;
+  int compensator = 0;
+  int count = 0;
   moveTo(-30,0,true);
-  while(analogRead(QRD_LEFT) < THRESHOLD) {
-    moveTo(60,0,true);
+  while(analogRead(QRD_LEFT) < THRESHOLD && count < 4) {
+    moveTo(60+compensator,0,true);
     if(analogRead(QRD_LEFT) > THRESHOLD) {return;}
-    moveTo(-60,0,true);
+    moveTo(-60+compensator,0,true);
+    compensator += 5;
+    count ++;
   }
+  stopDrive();
 }
 
 /*
@@ -271,7 +280,7 @@ Move the robot to a position based on a given angle and distance
 +ve angle turns left
 -ve angle turns right
 */
-void moveTo(int angle, float distance, bool tape) 
+void moveTo(int angle, float distance, bool tape)
 {
   //Vars
   int THRESHOLD = menuItems[4].Value;
@@ -326,9 +335,9 @@ void moveTo(int angle, float distance, bool tape)
 /*
 Check encoders and update turns
 */
-void checkEnc() 
+void checkEnc()
 {
-  cur_enc_left = digitalRead(ROT_LEFT); 
+  cur_enc_left = digitalRead(ROT_LEFT);
   cur_enc_right = digitalRead(ROT_RIGHT);
 
   if(prev_enc_left == HIGH && cur_enc_left == LOW) { TURNS_LEFT++; }
@@ -349,7 +358,7 @@ Params:
 Servo - servo we want to control
 Angle - sets the servo to this angle
 */
-void setServo(int servo, int angle) 
+void setServo(int servo, int angle)
 {
   if(servo == 0) {RCServo0.write(angle);}
   else if(servo == 1) {RCServo1.write(angle);}
@@ -360,7 +369,7 @@ void setServo(int servo, int angle)
 The arm moves up and to the centre of the box and then releases the pet
 into the box
 */
-void dropoff() 
+void dropoff()
 {
   ArmPID(HEIGHT, ARM_UP);
   ArmPID(ANGLE, ARM_CENTRE);
@@ -376,11 +385,29 @@ The arm will then dropoff the pet in the box.
 Params:
 Side - the side of the robot we want to pick up on
 */
-void pickup(int side) 
+void pickup(int side)
 {
+  int angle = 0;
+  int attempt = 0;
   ArmPID(HEIGHT, ARM_UP);
-  ArmPID(ANGLE, side);
-  ArmPID(HEIGHT, ARM_DOWN);
+  while (digitalRead(SWITCH_PLATE) == HIGH && attempt < 3) {
+    switch (attempt) {
+      case 0:
+        angle = side;
+        break;
+      case 1:
+        angle = side - SHIFT;
+        break;
+      case 2:
+        angle = side + SHIFT;
+        break;
+      default:
+        angle = side;
+    }
+    ArmPID(ANGLE, angle);
+    ArmPID(HEIGHT, ARM_DOWN);
+    ArmPID(HEIGHT, ARM_HOR);
+  }
   dropoff();
 }
 
@@ -398,7 +425,7 @@ For reference:
   P - if too high can cause osscillations
   D - acts as damping
   */
-void PIDTape() 
+void PIDTape()
 {
   LCD.clear(); LCD.home();
   LCD.print("NUM");
@@ -517,19 +544,23 @@ Params:
   pos - the position to set the arm too
 */
 
-void ArmPID(int dim, int pos) 
+void ArmPID(int dim, int pos)
 {
   //Set variables
-  int P_gain;
-  int I_gain;
-  int max_speed;
-  int maxI;
-  int MOTOR;
-  int PIN;
+  int P_gain = 0;
+  int I_gain = 0;
+  int max_speed = 0;
+  int maxI = 0;
+  int MOTOR = 0;
+  int PIN = 0;
   int D_gain = 0;
+  int deadband = 0;
+  bool high_pet = false;
+  int cur_angle = 0;
 
   //Height
   if(dim == HEIGHT) {
+    cur_angle = analogRead(POTENTIOMETER_CRANE_ANGLE);
     P_gain = P_HEIGHT;
     D_gain = D_HEIGHT;
     I_gain = I_HEIGHT;
@@ -537,6 +568,8 @@ void ArmPID(int dim, int pos)
     maxI = I_MAX_HEIGHT;
     MOTOR = MOTOR_CRANE_HEIGHT;
     PIN = POTENTIOMETER_CRANE_HEIGHT;
+    deadband = DEADBAND_HEIGHT;
+    if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE)) && pos == ARM_DOWN) {high_pet = true;}
   }
   //Angle
   else {
@@ -547,13 +580,13 @@ void ArmPID(int dim, int pos)
     maxI = I_MAX_ANGLE;
     MOTOR = MOTOR_CRANE_ANGLE;
     PIN = POTENTIOMETER_CRANE_ANGLE;
+    deadband = DEADBAND_ANGLE;
    }
 
   // Variables
   int pot = 0;
   int count = 0;
   int target = 0;
-  int deadband = DEADBAND;
 
   // PID variables
   float proportional = 0;
@@ -565,10 +598,19 @@ void ArmPID(int dim, int pos)
   float error = 0;
   float last_error = 0;
 
+  // Timing
+  long start_pid = millis();
+
   unsigned long last_integral_update_ms = 0;
   const unsigned int integral_update_delay_ms = 5;
 
   while(true){
+
+    if (high_pet) {
+      if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
+    } else {
+      if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
+    }
 
     pot = analogRead(PIN);
 
@@ -618,7 +660,7 @@ void ArmPID(int dim, int pos)
 Control code for the menu where we can adjust values to tune PID control
 (only for tape following)
 */
-void Menu() 
+void Menu()
 {
   LCD.clear(); LCD.home();
   LCD.print("Entering menu");

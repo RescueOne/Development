@@ -91,7 +91,7 @@ int ROT_RIGHT = 1; //Rotary encoder for right wheel
 //For Arm PID
 int MAX_ANALOG = 1023;
 int SPEED_HEIGHT = 120;
-int SPEED_ANGLE = 50;
+int SPEED_ANGLE = 65;
 int P_HEIGHT = 20;
 int P_ANGLE = 1;
 int I_HEIGHT = 24;
@@ -115,8 +115,8 @@ int HEIGHT = 1;
 int ANGLE = 2;
 
 //For rot encoder
-float DIST_PER_TAPE = 6.3; //Distance wheel moves per tape hit (cm)
-float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
+float DIST_PER_TAPE = PI;  //Distance wheel moves per tape hit (cm)
+float LENGTH_OF_AXLE = 24.2; //Length of axle (cm)
 int TURNS_LEFT = 0;
 int TURNS_RIGHT = 0;
 int prev_enc_left = 0;
