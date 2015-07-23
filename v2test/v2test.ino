@@ -91,9 +91,9 @@ int ROT_RIGHT = 1; //Rotary encoder for right wheel
 //For Arm PID
 int MAX_ANALOG = 1023;
 int SPEED_HEIGHT = 150;
-int SPEED_ANGLE = 70;
+int SPEED_ANGLE = 50;
 int P_HEIGHT = 20;
-int P_ANGLE = 12;
+int P_ANGLE = 1;
 int I_HEIGHT = 24;
 int I_ANGLE = 1;
 int I_MAX_HEIGHT = 150;
@@ -493,7 +493,6 @@ void ArmPID(int dim, int pos) {
   if(dim == HEIGHT) {
     P_gain = P_HEIGHT;
     I_gain = I_HEIGHT;
-    D_gain = D_HEIGHT;
     max_speed = SPEED_HEIGHT;
     maxI = I_MAX_HEIGHT;
     MOTOR = MOTOR_CRANE_HEIGHT;
@@ -504,7 +503,6 @@ void ArmPID(int dim, int pos) {
   else {
     P_gain = P_ANGLE;
     I_gain = I_ANGLE;
-    D_gain = D_ANGLE;
     max_speed = SPEED_ANGLE;
     maxI = I_MAX_ANGLE;
     MOTOR = MOTOR_CRANE_ANGLE;
@@ -514,14 +512,14 @@ void ArmPID(int dim, int pos) {
   // Variables
   int pot = 0;
   int count = 0;
-  long target = 0;
-  int deadband = DEADBAND;
+  unsigned int target = 0;
+  const int deadband = DEADBAND;
 
   // PID variables
-  double proportional = 0;
-  double integral = 0;
-  double derivative = 0;
-  double compensator = 0;
+  float proportional = 0;
+  float integral = 0;
+  float derivative = 0;
+  float compensator = 0;
 
   // Errors
   double error = 0;
@@ -539,8 +537,7 @@ void ArmPID(int dim, int pos) {
     else { target = 0; }
 
     proportional = P_gain * error;
-    integral = I_gain * error / 100.0 + integral;
-    derivative = D_gain * (error - last_error);
+    integral = I_gain * error + integral;
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}
@@ -557,7 +554,7 @@ void ArmPID(int dim, int pos) {
 
     last_error = error;
 
-    if ( target > 500 ) {
+    if ( target > 1000 ) {
       return;
     }
 
