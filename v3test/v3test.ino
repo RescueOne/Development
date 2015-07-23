@@ -106,14 +106,14 @@ const int D_HEIGHT = 0;
 const int D_ANGLE = 4;
 
 // Positions
-const int ARM_UP = 950;
+const int ARM_UP = 900;
 const int ARM_HOR = 830;
 const int ARM_DOWN = 700;
 const int ARM_PICKUP = 600;
 const int ARM_LEFT = 250;
 const int ARM_CENTRE = 500;
 const int ARM_RIGHT = 700;
-const int SHIFT = 5; // The amount the arm shifts on each attempt
+const int SHIFT = 30; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
@@ -225,11 +225,11 @@ void mainStart()
     }
     if (NUM == 7 || NUM == 8) {
       stopDrive();
-      moveTo(0, 25, false);
-      moveTo(-5, 8, false);
+      moveTo(0, 20, false);
+      moveTo(-5, 5, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      findTape();
+      moveTo(-80,0,true);
       PIDTape();
     }
   }
@@ -284,7 +284,7 @@ void moveTo(int angle, float distance, bool tape)
 {
   //Vars
   int THRESHOLD = menuItems[4].Value;
-  int DELAY = 500;
+  // int DELAY = 1;
   //First change angle
   int angleSpeed = 100;
   int linSpeed = 150;
@@ -305,7 +305,7 @@ void moveTo(int angle, float distance, bool tape)
   long startTurn = millis();
   LCD.clear(); LCD.home(); LCD.print("Turning");
   while((leftDone == false || rightDone == false) && angle != 0) {
-    if(tape && analogRead(QRD_LEFT) > THRESHOLD && millis() - startTurn > DELAY) {return;}
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
     LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
