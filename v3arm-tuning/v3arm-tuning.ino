@@ -180,10 +180,8 @@ NUM == 8; At 1st pet
 */
 void mainStart()
 {
-  LCD.clear(); LCD.home();
-  LCD.print("NUM");
   while(true) {
-    
+
     // pickup(ARM_LEFT);
     ArmPID(ANGLE, ARM_LEFT);
     ArmPID(ANGLE, ARM_CENTRE);
@@ -293,6 +291,7 @@ void ArmPID(int dim, int pos)
   int D_gain = 0;
   int deadband = 0;
   bool high_pet = false;
+  bool low_pet = false;
   int cur_angle = 0;
 
   //Height
@@ -306,7 +305,10 @@ void ArmPID(int dim, int pos)
     MOTOR = MOTOR_CRANE_HEIGHT;
     PIN = POTENTIOMETER_CRANE_HEIGHT;
     deadband = DEADBAND_HEIGHT;
-    if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE)) && pos == ARM_DOWN) {high_pet = true;}
+    if (pos == ARM_DOWN) {
+      if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE))){high_pet = true;}
+      else {low_pet = true;}
+    }
   }
   //Angle
   else {
@@ -348,8 +350,8 @@ void ArmPID(int dim, int pos)
           P_gain =  analogRead(7) / 100.0;
           D_gain = analogRead(6);
           LCD.clear(); LCD.home();
-          LCD.print("P "); LCD.print(P_gain); LCD.setCursor(0,1);
-          LCD.print("D ");LCD.print(D_gain);
+          LCD.print("P "); LCD.print(P_gain); LCD.print("  D  "); LCD.print(D_gain);
+          LCD.setCursor(0,1); LCD.print("error ");LCD.print(error);
           count = 0;
     }
     count++;
@@ -357,7 +359,7 @@ void ArmPID(int dim, int pos)
     // if the robot has been looking for a pet too long it will stop
     if (high_pet) {
       if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
-    } else {
+    } else if (low_pet) {
       if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
     }
 

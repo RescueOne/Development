@@ -7,9 +7,9 @@
 volatile unsigned int NUM = 0;
 
 /*
-=============
-== CLASSES ==
-=============
+=================
+== MENU SYSTEM ==
+=================
 */
 class MenuItem
 {
@@ -69,10 +69,11 @@ const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 //Analog
 const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
-const int QRD_PET_BACK = 2; //QRD for locating pets back
-const int QRD_PET_FRONT = 3; //QRD for locating pets front
+const int QRD_PET_RIGHT = 3; //QRD for locating pets back
+const int QRD_PET_LEFT = 2; //QRD for locating pets front
 const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
 const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
+const int IR = 6;
 
 //Servo
 const int SERVO_PLATE = 0; //Servo to drop pet
@@ -210,14 +211,14 @@ void mainStart()
     }
     if (NUM == 4) {
       stopDrive();
-      moveTo(-30, 30, false);
-      moveTo(200, 30, true);
+      moveTo(-30, 40, false);
+      moveTo(250, 30, true);
       NUM++;
       PIDTape();
     }
     if (NUM == 6) {
       stopDrive();
-      moveTo(0, 10, false);
+      moveTo(0, 15, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
       findTape();
@@ -244,8 +245,7 @@ void mainStart()
 /*
 Stops the drive motors.
 */
-void stopDrive()
-{
+void stopDrive() {
   motor.speed(MOTOR_LEFT, 0);
   motor.speed(MOTOR_RIGHT, 0);
 }
@@ -253,8 +253,7 @@ void stopDrive()
 /*
 Moves left and right until it finds tape again
 */
-void findTape()
-{
+void findTape() {
   int THRESHOLD = menuItems[4].Value;
   int compensator = 0;
   int count = 0;
@@ -265,6 +264,19 @@ void findTape()
     moveTo(-60+compensator,0,true);
     compensator += 5;
     count ++;
+  }
+  stopDrive();
+}
+
+void centreIR() {
+  int irVal = 0;
+  int error = 0;
+  int prev_error = 0;
+  int THRESHOLD = MAX_ANALOG;
+  while(prev_error < error) {
+    prev_error = error;
+    error = THRESHOLD - analogRead(IR);
+    motor.speed(MOTOR_LEFT, 100);
   }
   stopDrive();
 }
@@ -284,7 +296,8 @@ void moveTo(int angle, float distance, bool tape)
 {
   //Vars
   int THRESHOLD = menuItems[4].Value;
-  // int DELAY = 1;
+  int DELAY = 300;
+
   //First change angle
   int angleSpeed = 100;
   int linSpeed = 150;
@@ -303,14 +316,16 @@ void moveTo(int angle, float distance, bool tape)
     motor.speed(MOTOR_RIGHT, -1*angleSpeed);
   }
   long startTurn = millis();
-  LCD.clear(); LCD.home(); LCD.print("Turning");
+  // LCD.clear(); LCD.home(); LCD.print("Turning");
   while((leftDone == false || rightDone == false) && angle != 0) {
-    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD && (millis() - startTurn) > DELAY) {return;}
     checkEnc();
-    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
-    if(TURNS_LEFT == angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
-    if(TURNS_RIGHT == angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
+    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    if(TURNS_LEFT >= angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
+    if(TURNS_RIGHT >= angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
+
+  //Then change linear distance
   TURNS_LEFT = 0; TURNS_RIGHT = 0;
   leftDone = false; rightDone = false;
   if (distance > 0) {
@@ -322,13 +337,13 @@ void moveTo(int angle, float distance, bool tape)
     motor.speed(MOTOR_LEFT,-1*linSpeed);
     motor.speed(MOTOR_RIGHT,-1*linSpeed);
   }
-  LCD.clear(); LCD.home(); LCD.print("Moving");
+  // LCD.clear(); LCD.home(); LCD.print("Moving");
   while((leftDone == false || rightDone == false) && distance != 0) {
-    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {stopDrive(); return;}
     checkEnc();
-    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
-    if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
-    if(TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
+    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    if(TURNS_LEFT >= linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
+    if(TURNS_RIGHT >= linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
 }
 
@@ -407,6 +422,7 @@ void pickup(int side)
     ArmPID(ANGLE, angle);
     ArmPID(HEIGHT, ARM_DOWN);
     ArmPID(HEIGHT, ARM_HOR);
+    attempt++;
   }
   dropoff();
 }
@@ -437,8 +453,7 @@ void PIDTape()
   int THRESHOLD = menuItems[4].Value; //threshold for switch from white to black
   int qrd_left = 0; //Value of left qrd
   int qrd_right = 0; //Value of right qrd
-  int qrd_pet_front = 0; //Value of pet qrd
-  int qrd_pet_back = 0; //Value of back pet QRD
+  int qrd_pet = 0;
   int error = 0; //Current error
   int last_error = 0;
   int recent_error = 0; //Recent error
@@ -452,10 +467,7 @@ void PIDTape()
   int spd = (int)((float)S*((float)255/(float)MAX_ANALOG));
 
   int WAIT_TIME = 600;
-  int WAIT_TIME_LONG = 3500;
-  int WAIT_TIME_SHORT = 400;
   long start_time = 0;
-  long start_time_2 = 0;
   int count = 0;
 
   //PID loop
@@ -463,11 +475,12 @@ void PIDTape()
     //Read QRD's
     qrd_left = analogRead(QRD_LEFT);
     qrd_right = analogRead(QRD_RIGHT);
-    qrd_pet_front = analogRead(QRD_PET_FRONT);
+    if(NUM > 5) {qrd_pet = analogRead(QRD_PET_LEFT);}
+    else {qrd_pet = analogRead(QRD_PET_RIGHT);}
 
     if(count == 0){start_time = millis(); count++;}
     if((millis() - start_time) > WAIT_TIME) {
-      if(qrd_pet_front > PET_QRD_THRESHOLD) {
+      if(qrd_pet > PET_QRD_THRESHOLD) {
         NUM++;
         count--;
         LCD.setCursor(0,1); LCD.print(NUM);
@@ -556,6 +569,7 @@ void ArmPID(int dim, int pos)
   int D_gain = 0;
   int deadband = 0;
   bool high_pet = false;
+  bool low_pet = false;
   int cur_angle = 0;
 
   //Height
@@ -569,12 +583,15 @@ void ArmPID(int dim, int pos)
     MOTOR = MOTOR_CRANE_HEIGHT;
     PIN = POTENTIOMETER_CRANE_HEIGHT;
     deadband = DEADBAND_HEIGHT;
-    if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE)) && pos == ARM_DOWN) {high_pet = true;}
+    if (pos == ARM_DOWN) {
+      if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE))){high_pet = true;}
+      else {low_pet = true;}
+    }
   }
   //Angle
   else {
     P_gain = P_ANGLE;
-    I_gain = I_ANGLE; // I_angle = 1
+    I_gain = I_ANGLE;
     D_gain = D_ANGLE;
     max_speed = SPEED_ANGLE;
     maxI = I_MAX_ANGLE;
@@ -606,9 +623,10 @@ void ArmPID(int dim, int pos)
 
   while(true){
 
+    if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
     if (high_pet) {
       if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
-    } else {
+    } else if (low_pet) {
       if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
     }
 
@@ -646,7 +664,6 @@ void ArmPID(int dim, int pos)
       return;
     }
 
-    if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
   }
 }
 
