@@ -114,7 +114,7 @@ const int ARM_PICKUP = 600;
 const int ARM_LEFT = 250;
 const int ARM_CENTRE = 500;
 const int ARM_RIGHT = 700;
-const int SHIFT = 30; // The amount the arm shifts on each attempt
+const int SHIFT = 50; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
@@ -222,7 +222,7 @@ void mainStart()
     }
     if (NUM == 6) {
       stopDrive();
-      moveTo(0, 15, false);
+      moveTo(0, 10, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
       findTape();
@@ -235,7 +235,7 @@ void mainStart()
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
       findTape();
-      ArmPID(HEIGHT,ARM_HOR);
+      if (NUM == 8){ArmPID(HEIGHT,ARM_HOR);}
       PIDTape();
     }
   }
@@ -304,7 +304,7 @@ void moveTo(int angle, float distance, bool tape)
 
   //First change angle
   int angleSpeed = 100;
-  int linSpeed = 150;
+  int linSpeed = 100;
   int angleTurns = ceil((abs(angle)*((LENGTH_OF_AXLE*PI)/360))/DIST_PER_TAPE);
   int linTurns = ceil(abs(distance)/DIST_PER_TAPE);
   bool leftDone = false;
@@ -414,16 +414,13 @@ void pickup(int side)
   int angle = 0;
   int attempt = 0;
   ArmPID(HEIGHT, ARM_UP);
-  while (digitalRead(SWITCH_PLATE) == HIGH && attempt < 3) {
+  while (digitalRead(SWITCH_PLATE) == HIGH && attempt < 2) {
     switch (attempt) {
       case 0:
         angle = side;
         break;
       case 1:
         angle = side - SHIFT;
-        break;
-      case 2:
-        angle = side + SHIFT;
         break;
       default:
         angle = side;
