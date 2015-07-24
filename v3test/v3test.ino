@@ -107,7 +107,7 @@ const int D_HEIGHT = 0;
 const int D_ANGLE = 4;
 
 // Positions
-const int ARM_UP = 900;
+const int ARM_UP = 920;
 const int ARM_HOR = 830;
 const int ARM_DOWN = 700;
 const int ARM_PICKUP = 600;
@@ -211,7 +211,11 @@ void mainStart()
     }
     if (NUM == 4) {
       stopDrive();
-      moveTo(-30, 40, false);
+      moveTo(-10, 30, false);
+      // moveTo(-20, 100, false);
+      // ArmPID(HEIGHT,ARM_UP);
+      // pickup(ARM_RIGHT);
+      // ArmPID(HEIGHT,ARM_HOR);
       moveTo(250, 30, true);
       NUM++;
       PIDTape();
@@ -226,11 +230,12 @@ void mainStart()
     }
     if (NUM == 7 || NUM == 8) {
       stopDrive();
-      moveTo(0, 20, false);
-      moveTo(-5, 5, false);
+      moveTo(0, 28, false);
+      moveTo(-20, -10, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      moveTo(-80,0,true);
+      findTape();
+      ArmPID(HEIGHT,ARM_HOR);
       PIDTape();
     }
   }
@@ -257,11 +262,11 @@ void findTape() {
   int THRESHOLD = menuItems[4].Value;
   int compensator = 0;
   int count = 0;
-  moveTo(-30,0,true);
+  moveTo(-25,0,true);
   while(analogRead(QRD_LEFT) < THRESHOLD && count < 4) {
-    moveTo(60+compensator,0,true);
+    moveTo(50+compensator,0,true);
     if(analogRead(QRD_LEFT) > THRESHOLD) {return;}
-    moveTo(-60+compensator,0,true);
+    moveTo(-50+compensator,0,true);
     compensator += 5;
     count ++;
   }
@@ -296,7 +301,6 @@ void moveTo(int angle, float distance, bool tape)
 {
   //Vars
   int THRESHOLD = menuItems[4].Value;
-  int DELAY = 300;
 
   //First change angle
   int angleSpeed = 100;
@@ -306,6 +310,11 @@ void moveTo(int angle, float distance, bool tape)
   bool leftDone = false;
   bool rightDone = false;
   TURNS_RIGHT = 0; TURNS_LEFT = 0;
+
+  //debugging
+  LCD.clear(); LCD.home();
+  LCD.print(angleTurns); LCD.print("  "); LCD.print(linTurns);
+
   if (angle > 0) {
     motor.speed(MOTOR_LEFT, -1*angleSpeed);
     motor.speed(MOTOR_RIGHT, angleSpeed);
@@ -315,12 +324,11 @@ void moveTo(int angle, float distance, bool tape)
     motor.speed(MOTOR_LEFT, angleSpeed);
     motor.speed(MOTOR_RIGHT, -1*angleSpeed);
   }
-  long startTurn = millis();
   // LCD.clear(); LCD.home(); LCD.print("Turning");
   while((leftDone == false || rightDone == false) && angle != 0) {
-    if(tape && analogRead(QRD_LEFT) > THRESHOLD && (millis() - startTurn) > DELAY) {return;}
+    if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
-    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT >= angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
     if(TURNS_RIGHT >= angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
@@ -330,7 +338,7 @@ void moveTo(int angle, float distance, bool tape)
   leftDone = false; rightDone = false;
   if (distance > 0) {
     motor.speed(MOTOR_LEFT,linSpeed);
-    motor.speed(MOTOR_RIGHT, linSpeed);
+    motor.speed(MOTOR_RIGHT,linSpeed);
   } else if (distance == 0) {
     stopDrive();
   } else {
@@ -341,10 +349,11 @@ void moveTo(int angle, float distance, bool tape)
   while((leftDone == false || rightDone == false) && distance != 0) {
     if(tape && analogRead(QRD_LEFT) > THRESHOLD) {stopDrive(); return;}
     checkEnc();
-    // LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
-    if(TURNS_LEFT >= linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
-    if(TURNS_RIGHT >= linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
+    LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
+    if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
+    if(TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
   }
+  stopDrive();
 }
 
 /*
@@ -454,7 +463,7 @@ void PIDTape()
   int qrd_left = 0; //Value of left qrd
   int qrd_right = 0; //Value of right qrd
   int qrd_pet = 0;
-  int error = 0; //Current error
+  int error = -1; //Current error
   int last_error = 0;
   int recent_error = 0; //Recent error
   int proportional = 0; //Proportional control
@@ -478,7 +487,10 @@ void PIDTape()
     if(NUM > 5) {qrd_pet = analogRead(QRD_PET_LEFT);}
     else {qrd_pet = analogRead(QRD_PET_RIGHT);}
 
-    if(count == 0){start_time = millis(); count++;}
+    // LCD.clear(); LCD.home();
+    // LCD.print(qrd_pet); LCD.print("  "); LCD.print(analogRead(QRD_PET_RIGHT));
+
+    if(count == 0) {start_time = millis(); count++;}
     if((millis() - start_time) > WAIT_TIME) {
       if(qrd_pet > PET_QRD_THRESHOLD) {
         NUM++;
