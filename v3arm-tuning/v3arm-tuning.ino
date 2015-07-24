@@ -117,7 +117,7 @@ const int SHIFT = 30; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
-const int DEADBAND_ANGLE = 0;
+const int DEADBAND_ANGLE = 5;
 
 // Other
 const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
@@ -345,21 +345,22 @@ void ArmPID(int dim, int pos)
 
     // only print every 500 iterations
     if (count > 500){
-          P_gain =  analogRead(7) / 100.0;
+          P_gain =  analogRead(7) / 10.0;
           D_gain = analogRead(6);
           LCD.clear(); LCD.home();
-          LCD.print("P "); LCD.print(P_gain); LCD.setCursor(0,1);
-          LCD.print("D ");LCD.print(D_gain);
+          LCD.print("P "); LCD.print(P_gain); LCD.print("D ");LCD.print(D_gain); LCD.setCursor(0,1);
+          LCD.print("Error "); LCD.print(error);
+          
           count = 0;
     }
     count++;
 
     // if the robot has been looking for a pet too long it will stop
-    if (high_pet) {
-      if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
-    } else {
-      if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
-    }
+    // if (high_pet) {
+    //   if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
+    // } else {
+    //   if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
+    // }
 
     pot = analogRead(PIN);
 
