@@ -54,8 +54,6 @@ void setup()
   LCD.home();
 }
 
-int count_setup = 0;
-
 /*
 ==================
 == TINAH INPUTS ==
@@ -71,11 +69,11 @@ const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 //Analog
 const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
-const int QRD_PET_RIGHT = 4; //QRD for locating pets back
+const int QRD_PET_RIGHT = 3; //QRD for locating pets back
 const int QRD_PET_LEFT = 2; //QRD for locating pets front
-const int POTENTIOMETER_CRANE_HEIGHT = 7; //Rotary potentiometer for crane arm
-const int POTENTIOMETER_CRANE_ANGLE = 6; //Rotary potentiometer for crane arm
-// const int IR = 6;
+const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
+const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
+const int IR = 6;
 
 //Servo
 const int SERVO_PLATE = 0; //Servo to drop pet
@@ -95,7 +93,7 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 // Height -> vertical movement of the arm
 
 // Speed
-const int SPEED_HEIGHT = 110;
+const int SPEED_HEIGHT = 120;
 const int SPEED_ANGLE = 65;
 
 // PID Constants
@@ -109,14 +107,14 @@ const int D_HEIGHT = 0;
 const int D_ANGLE = 4;
 
 // Positions
-const int ARM_UP = 950;
+const int ARM_UP = 920;
 const int ARM_HOR = 830;
 const int ARM_DOWN = 700;
 const int ARM_PICKUP = 600;
 const int ARM_LEFT = 250;
 const int ARM_CENTRE = 500;
 const int ARM_RIGHT = 700;
-const int SHIFT = 60; // The amount the arm shifts on each attempt
+const int SHIFT = 50; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
@@ -126,7 +124,7 @@ const int DEADBAND_ANGLE = 25;
 const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
 const int MAX_TIME_SHORT = 1000; //Max time the arm can move down for pickup (high pet)
 const int MAX_ANALOG = 1023; // for converting arduino resolution to speed
-const int PET_QRD_THRESHOLD = 450; // when the arm will stop to pick up pets
+const int PET_QRD_THRESHOLD = 400; // when the arm will stop to pick up pets
 
 //For reference
 const int HEIGHT = 1;
@@ -141,8 +139,6 @@ const int ANGLE = 2;
 // wheel dimensions
 const float DIST_PER_TAPE = PI; //Distance wheel moves per tape hit (cm)
 const float LENGTH_OF_AXLE = 23.7; //Length of axle (cm)
-const int TURN_SPEED = 100;
-const int LIN_SPEED = 150;
 
 // Variables
 int TURNS_LEFT = 0;
@@ -160,16 +156,12 @@ int cur_enc_right = 0;
 
 void loop()
 {
-  if(count_setup == 0) {
-    //Get in start position
-    stopDrive();
-    setServo(SERVO_PLATE, 0);
-    ArmPID(HEIGHT,ARM_UP);
-    ArmPID(ANGLE,ARM_CENTRE);
-    ArmPID(HEIGHT,ARM_DOWN);
-    motor.speed(MOTOR_CRANE_HEIGHT,0);
-    count_setup++;
-  }
+  stopDrive();
+  setServo(SERVO_PLATE, 0);
+
+  ArmPID(HEIGHT,ARM_UP);
+  ArmPID(ANGLE,ARM_CENTRE);
+  ArmPID(HEIGHT,ARM_DOWN);
 
   LCD.clear(); LCD.home();
   LCD.print("Start: Menu");
@@ -222,7 +214,11 @@ void mainStart()
     if (NUM == 4) {
       stopDrive();
       moveTo(-10, 30, false);
-      moveTo(250, 30, true);
+      moveTo(-20,20, false);
+      ArmPID(HEIGHT,ARM_UP);
+      pickup(ARM_RIGHT);
+      ArmPID(HEIGHT,ARM_HOR);
+      moveTo(190, 70, true);
       NUM++;
       PIDTape();
     }
@@ -237,11 +233,11 @@ void mainStart()
     if (NUM == 7 || NUM == 8) {
       stopDrive();
       moveTo(0, 28, false);
-      moveTo(-20, -15, false);
+      moveTo(-20, -10, false);
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_LEFT);
-      if (NUM == 8){ArmPID(HEIGHT,ARM_HOR);}
       findTape();
+      if (NUM == 8){ArmPID(HEIGHT,ARM_HOR);}
       PIDTape();
     }
   }
@@ -279,6 +275,19 @@ void findTape() {
   stopDrive();
 }
 
+void centreIR() {
+  int irVal = 0;
+  int error = 0;
+  int prev_error = 0;
+  int THRESHOLD = MAX_ANALOG;
+  while(prev_error < error) {
+    prev_error = error;
+    error = THRESHOLD - analogRead(IR);
+    motor.speed(MOTOR_LEFT, 100);
+  }
+  stopDrive();
+}
+
 /*
 ====================
 == ROTARY ENCODER ==
@@ -296,6 +305,8 @@ void moveTo(int angle, float distance, bool tape)
   int THRESHOLD = menuItems[4].Value;
 
   //First change angle
+  int angleSpeed = 100;
+  int linSpeed = 100;
   int angleTurns = ceil((abs(angle)*((LENGTH_OF_AXLE*PI)/360))/DIST_PER_TAPE);
   int linTurns = ceil(abs(distance)/DIST_PER_TAPE);
   bool leftDone = false;
@@ -307,19 +318,18 @@ void moveTo(int angle, float distance, bool tape)
   LCD.print(angleTurns); LCD.print("  "); LCD.print(linTurns);
 
   if (angle > 0) {
-    motor.speed(MOTOR_LEFT, -1*TURN_SPEED);
-    motor.speed(MOTOR_RIGHT, TURN_SPEED);
+    motor.speed(MOTOR_LEFT, -1*angleSpeed);
+    motor.speed(MOTOR_RIGHT, angleSpeed);
   } else if (angle == 0) {
     stopDrive();
   } else {
-    motor.speed(MOTOR_LEFT, TURN_SPEED);
-    motor.speed(MOTOR_RIGHT, -1*TURN_SPEED);
+    motor.speed(MOTOR_LEFT, angleSpeed);
+    motor.speed(MOTOR_RIGHT, -1*angleSpeed);
   }
   // LCD.clear(); LCD.home(); LCD.print("Turning");
   while((leftDone == false || rightDone == false) && angle != 0) {
     if(tape && analogRead(QRD_LEFT) > THRESHOLD) {return;}
     checkEnc();
-    //Debugging
     LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT >= angleTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
     if(TURNS_RIGHT >= angleTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
@@ -329,19 +339,18 @@ void moveTo(int angle, float distance, bool tape)
   TURNS_LEFT = 0; TURNS_RIGHT = 0;
   leftDone = false; rightDone = false;
   if (distance > 0) {
-    motor.speed(MOTOR_LEFT,LIN_SPEED);
-    motor.speed(MOTOR_RIGHT,LIN_SPEED);
+    motor.speed(MOTOR_LEFT,linSpeed);
+    motor.speed(MOTOR_RIGHT,linSpeed);
   } else if (distance == 0) {
     stopDrive();
   } else {
-    motor.speed(MOTOR_LEFT,-1*LIN_SPEED);
-    motor.speed(MOTOR_RIGHT,-1*LIN_SPEED);
+    motor.speed(MOTOR_LEFT,-1*linSpeed);
+    motor.speed(MOTOR_RIGHT,-1*linSpeed);
   }
   // LCD.clear(); LCD.home(); LCD.print("Moving");
   while((leftDone == false || rightDone == false) && distance != 0) {
     if(tape && analogRead(QRD_LEFT) > THRESHOLD) {stopDrive(); return;}
     checkEnc();
-    // Debugging
     LCD.setCursor(0,1); LCD.print(TURNS_LEFT); LCD.print("  "); LCD.print(TURNS_RIGHT);
     if(TURNS_LEFT == linTurns) {motor.speed(MOTOR_LEFT,0); leftDone = true;}
     if(TURNS_RIGHT == linTurns) {motor.speed(MOTOR_RIGHT,0); rightDone = true;}
@@ -469,22 +478,8 @@ void PIDTape()
   long start_time = 0;
   int count = 0;
 
-  //debugging
-  int count_debug = 0;
-
   //PID loop
   while (true) {
-
-    //debugging
-    if (count > 500) {
-      LCD.clear(); LCD.home();
-      LCD.print("L: "); LCD.print(spd + compensation); LCD.print(" R: "); LCD.print(spd - compensation);
-      LCD.setCursor(0,1);
-      LCD.print("L: "); LCD.print(qrd_left); LCD.print(" R: "); LCD.print(qrd_right);
-      count_debug = 0;
-    }
-    count_debug ++;
-
     //Read QRD's
     qrd_left = analogRead(QRD_LEFT);
     qrd_right = analogRead(QRD_RIGHT);
@@ -618,6 +613,7 @@ void ArmPID(int dim, int pos)
 
   // Variables
   int pot = 0;
+  int count = 0;
   int target = 0;
 
   // PID variables
@@ -633,20 +629,10 @@ void ArmPID(int dim, int pos)
   // Timing
   long start_pid = millis();
 
-  //Debugging
-  int count = 0;
-
   unsigned long last_integral_update_ms = 0;
   const unsigned int integral_update_delay_ms = 5;
 
   while(true){
-
-    if(count > 500) {
-      LCD.clear(); LCD.home();
-      LCD.print("pot: "); LCD.print(pot); LCD.print(" pos: "); LCD.print(pos);
-      count = 0;
-    }
-    count++;
 
     if(digitalRead(SWITCH_PLATE) == LOW && pos == ARM_DOWN) {return;}
     if (high_pet) {
