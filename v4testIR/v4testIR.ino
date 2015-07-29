@@ -84,14 +84,14 @@ const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
-const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
-const int QRD_PET_RIGHT = 3; //QRD for locating pets back
-const int QRD_PET_LEFT = 2; //QRD for locating pets front
+const int QRD_LEFT = 1; //Left QRD for tape following
+const int IR_RIGHT = 2;
+const int IR_LEFT = 3;
 const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
 const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
-const int IR_LEFT = 6;
-const int IR_RIGHT = 7;
+const int QRD_PET_RIGHT = 6; //QRD for locating pets back
+const int QRD_PET_LEFT = 7; //QRD for locating pets front
 
 //Servo
 const int SERVO_PLATE = 0; //Servo to drop pet
@@ -111,18 +111,20 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 // Height -> vertical movement of the arm
 
 // Speed
-const int SPEED_HEIGHT = 110;
-const int SPEED_ANGLE = 65;
+const int SPEED_HEIGHT = 70; // TODO: CHECK THIS
+const int SPEED_ANGLE = 80;
 
 // PID Constants
-const int P_HEIGHT = 20;
-const int P_ANGLE = 1;
-const int I_HEIGHT = 24;
-const int I_ANGLE = 1;
-const int I_MAX_HEIGHT = 150;
+// ANGLE
+const int P_ANGLE = 8;
+const int I_ANGLE = 0;
+const int D_ANGLE = 820;
 const int I_MAX_ANGLE = 150;
-const int D_HEIGHT = 0;
-const int D_ANGLE = 4;
+// HEIGHT
+const int P_HEIGHT = 10;
+const int I_HEIGHT = 0;
+const int D_HEIGHT = 145;
+const int I_MAX_HEIGHT = 150;
 
 // Positions
 const int ARM_UP = 950;
@@ -136,7 +138,7 @@ const int SHIFT = 60; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
-const int DEADBAND_ANGLE = 25;
+const int DEADBAND_ANGLE = 10;
 
 // Other
 const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
@@ -183,6 +185,8 @@ const int SPEED_IR = 900;
 //Other
 const int STOP_IR = 120;
 const int STOP_RE = 79;
+
+const int STOP_VAL = 120;
 
 /*
 =================
@@ -236,7 +240,7 @@ NUM == 1; past 1st pet
 NUM == 2; Past 2nd pet
 NUM == 3; Past 3rd pet
 NUM == 4; At 4th pet
-NUM == 5; On way back from 4th pet
+NUM == 5; On way back from 4th pet / 5th pet and IR following
 NUM == 6; At 3rd pet
 NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
@@ -253,13 +257,15 @@ void mainStart()
     }
     if (NUM == 4) {
       stopDrive();
-      moveTo(-20, 27, false);
-      PIDIR();
+      // moveTo(-20, 27, false);
+      PIDIR(false); // start IR following but don't look for tape
+      // picks up 5th pet
       ArmPID(HEIGHT,ARM_UP);
       pickup(ARM_RIGHT);
       ArmPID(HEIGHT,ARM_HOR);
-      moveTo(185, 30, true);
       NUM++;
+      moveTo(185, 0, false); // code to turn around
+      PIDIR(true); // start IR following until hits 4th pet tape
       PIDTape();
     }
     if (NUM == 6) {
@@ -471,8 +477,6 @@ void pickup(int side)
 ========================
 */
 
-// TODO: CLEAN UP MESSY CONTROL IF STATEMENTS
-
 /*
 PID control for tape following.
 For reference:
@@ -595,7 +599,7 @@ void PIDTape()
 ============
 */
 
-void PIDIR()
+void PIDIR(bool tape)
 {
   //Variables
   int irVal_left = 0; //Value of IR sensor
@@ -632,19 +636,25 @@ void PIDIR()
     irVal_left = analogRead(IR_LEFT);
     irVal_right = analogRead(IR_RIGHT);
 
-    //Stop at IR stop value
-    if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) {
-      delay(100);
-      irVal_left = analogRead(IR_LEFT);
-      irVal_right = analogRead(IR_RIGHT);
-      if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) { return; }
-    }
+    // if not looking for tape
+    if( tape == false) {
+      //Stop at a certain IR threshold value (stop-IR is the value to change)
+      if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) {
+        delay(100);
+        irVal_left = analogRead(IR_LEFT);
+        irVal_right = analogRead(IR_RIGHT);
+        if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) { return; }
+      }
 
-    //Stop at RE stop value
-    checkEnc();
-    if(TURNS_LEFT >= TURNS && TURNS_RIGHT >= TURNS) {
-      return;
+      //Stop after a certain numder of turns (stop-RE is the value to change)
+      checkEnc();
+      if(TURNS_LEFT >= TURNS && TURNS_RIGHT >= TURNS) { return; }
+    } 
+    else // will tape follow until a pet qrd is high
+    {
+      if(analogRead(QRD_PET_RIGHT) > PET_QRD_THRESHOLD || analogRead(QRD_PET_RIGHT) > PET_QRD_THRESHOLD ) { return; }
     }
+    
 
     /*Determine error
     * <0 its to the left
@@ -671,16 +681,16 @@ void PIDIR()
 }
 
 //Check the rotary encoders and increment turns
-void checkEnc()
-{
-  cur_enc_left = digitalRead(ROT_LEFT);
-  cur_enc_right = digitalRead(ROT_RIGHT);
+// void checkEnc()
+// {
+//   cur_enc_left = digitalRead(ROT_LEFT);
+//   cur_enc_right = digitalRead(ROT_RIGHT);
 
-  if(prev_enc_left == HIGH && cur_enc_left == LOW) { TURNS_LEFT++; }
-  if(prev_enc_right == HIGH && cur_enc_right == LOW) { TURNS_RIGHT++; }
+//   if(prev_enc_left == HIGH && cur_enc_left == LOW) { TURNS_LEFT++; }
+//   if(prev_enc_right == HIGH && cur_enc_right == LOW) { TURNS_RIGHT++; }
 
-  prev_enc_left = cur_enc_left; prev_enc_right = cur_enc_right;
-}
+//   prev_enc_left = cur_enc_left; prev_enc_right = cur_enc_right;
+// }
 
 /*
 =============
@@ -793,17 +803,22 @@ void ArmPID(int dim, int pos)
     //Determine error
     error = (pot - pos) / 10.0;
 
+    // to handle static friction problems
+    if(error < 0) { error += -3; }
+    else { error += 3; }
+
     //Check if arm is within deadband of target
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
-      error = 0;
       target++;
     }
     else { target = 0; }
 
+    if(pot - pos == 0) {error = 0;}
+
     //Calculating compensation
     proportional = P_gain * error;
-    derivative = D_gain * (error - last_error);
-    integral = I_gain * (error) + integral;
+    derivative = ((float) D_gain) * (error - last_error);
+    integral = I_gain * error / 100.0 + integral;
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}

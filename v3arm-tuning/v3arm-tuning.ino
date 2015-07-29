@@ -60,17 +60,9 @@ void setup()
 ==================
 */
 
-//Motor
-const int MOTOR_LEFT = 3; //PWM output for left motor
-const int MOTOR_RIGHT = 2; //PWM output for right motor
 const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
-//Analog
-const int QRD_LEFT = 1; //Left QRD for tape following
-const int QRD_RIGHT = 0; //Right QRD for tape following
-const int QRD_PET_BACK = 2; //QRD for locating pets back
-const int QRD_PET_FRONT = 3; //QRD for locating pets front
 const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
 const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
 
@@ -79,8 +71,6 @@ const int SERVO_PLATE = 0; //Servo to drop pet
 
 //Digital
 const int SWITCH_PLATE = 3; //Switch to see if pet is on plate
-const int ROT_LEFT = 0; //Rotary encoder for left wheel
-const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 /*
 ===========================
@@ -92,7 +82,7 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 // Height -> vertical movement of the arm
 
 // Speed
-const int SPEED_HEIGHT = 120;
+const int SPEED_HEIGHT = 80;
 const int SPEED_ANGLE = 80;
 
 // PID Constants
@@ -183,9 +173,10 @@ void mainStart()
   while(true) {
 
     // pickup(ARM_LEFT);
-    ArmPID(ANGLE, ARM_LEFT);
-    ArmPID(ANGLE, ARM_CENTRE);
-
+    // ArmPID(ANGLE, ARM_LEFT);
+    // ArmPID(ANGLE, ARM_CENTRE);
+    ArmPID(HEIGHT, ARM_UP);
+    ArmPID(HEIGHT, ARM_DOWN);
     if(startbutton())
     {
       delay(100);
@@ -299,7 +290,7 @@ void ArmPID(int dim, int pos)
     cur_angle = analogRead(POTENTIOMETER_CRANE_ANGLE);
     P_gain = P_HEIGHT;
     D_gain = D_HEIGHT;
-    I_gain = I_HEIGHT;
+    I_gain = 0;
     max_speed = SPEED_HEIGHT;
     maxI = I_MAX_HEIGHT;
     MOTOR = MOTOR_CRANE_HEIGHT;
@@ -321,6 +312,8 @@ void ArmPID(int dim, int pos)
     PIN = POTENTIOMETER_CRANE_ANGLE;
     deadband = DEADBAND_ANGLE;
    }
+
+   max_speed = 70;
 
   // Variables
   int pot = 0;
@@ -347,7 +340,7 @@ void ArmPID(int dim, int pos)
 
     // only print every 500 iterations
     if (count > 500){
-          P_gain =  analogRead(7) / 100.0;
+          P_gain =  analogRead(7);
           D_gain = analogRead(6);
           LCD.clear(); LCD.home();
           LCD.print("P "); LCD.print(P_gain); LCD.print(" D ");LCD.print(D_gain); LCD.setCursor(0,1);
