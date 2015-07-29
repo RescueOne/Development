@@ -93,7 +93,7 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 
 // Speed
 const int SPEED_HEIGHT = 120;
-const int SPEED_ANGLE = 65;
+const int SPEED_ANGLE = 80;
 
 // PID Constants
 const int P_HEIGHT = 20;
@@ -117,7 +117,7 @@ const int SHIFT = 30; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
 const int DEADBAND_HEIGHT = 15;
-const int DEADBAND_ANGLE = 5;
+const int DEADBAND_ANGLE = 10;
 
 // Other
 const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
@@ -138,7 +138,7 @@ const int ANGLE = 2;
 void loop()
 {
   setServo(SERVO_PLATE, 0);
-  ArmPID(HEIGHT, ARM_UP);
+  // ArmPID(HEIGHT, ARM_UP);
 
   LCD.clear(); LCD.home();
   LCD.print("Start: Menu");
@@ -180,10 +180,8 @@ NUM == 8; At 1st pet
 */
 void mainStart()
 {
-  LCD.clear(); LCD.home();
-  LCD.print("NUM");
   while(true) {
-    
+
     // pickup(ARM_LEFT);
     ArmPID(ANGLE, ARM_LEFT);
     ArmPID(ANGLE, ARM_CENTRE);
@@ -293,6 +291,7 @@ void ArmPID(int dim, int pos)
   int D_gain = 0;
   int deadband = 0;
   bool high_pet = false;
+  bool low_pet = false;
   int cur_angle = 0;
 
   //Height
@@ -306,7 +305,10 @@ void ArmPID(int dim, int pos)
     MOTOR = MOTOR_CRANE_HEIGHT;
     PIN = POTENTIOMETER_CRANE_HEIGHT;
     deadband = DEADBAND_HEIGHT;
-    if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE)) && pos == ARM_DOWN) {high_pet = true;}
+    if (pos == ARM_DOWN) {
+      if ((ARM_RIGHT - (SHIFT + DEADBAND_ANGLE)) <= cur_angle && cur_angle <= (ARM_RIGHT + (SHIFT + DEADBAND_ANGLE))){high_pet = true;}
+      else {low_pet = true;}
+    }
   }
   //Angle
   else {
@@ -345,36 +347,36 @@ void ArmPID(int dim, int pos)
 
     // only print every 500 iterations
     if (count > 500){
-          P_gain =  analogRead(7) / 10.0;
+          P_gain =  analogRead(7) / 100.0;
           D_gain = analogRead(6);
           LCD.clear(); LCD.home();
-          LCD.print("P "); LCD.print(P_gain); LCD.print("D ");LCD.print(D_gain); LCD.setCursor(0,1);
-          LCD.print("Error "); LCD.print(error);
-          
+          LCD.print("P "); LCD.print(P_gain); LCD.print(" D ");LCD.print(D_gain); LCD.setCursor(0,1);
+          LCD.print(error);
+          // LCD.print(pos);
+          // LCD.setCursor(0,1);
+          // LCD.print(pot);
+
           count = 0;
     }
     count++;
 
-    // if the robot has been looking for a pet too long it will stop
-    // if (high_pet) {
-    //   if ((millis() - start_pid) > MAX_TIME_SHORT) {return;}
-    // } else {
-    //   if ((millis() - start_pid) > MAX_TIME_LONG) {return;}
-    // }
-
     pot = analogRead(PIN);
 
-    error = (pot - pos);
+    error = ((pot - pos) / 10.0);
+    if(error < 0) {error = error -3;}
+    else {error = error + 3;}
 
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
-      error = 0;
+      // error = 0;
       target++;
     }
     else { target = 0; }
 
+    if(pot - pos == 0) {error = 0;}
+
     proportional = P_gain * error;
-    derivative = D_gain * (error - last_error);
-    integral = I_gain * (error) + integral;
+    derivative = ( (float) D_gain )* (error - last_error);
+    integral = I_gain * (error) / 100.0 + integral;
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}
