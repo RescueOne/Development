@@ -111,24 +111,23 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 // Height -> vertical movement of the arm
 
 // Speed
-const int SPEED_HEIGHT = 90;
-const int SPEED_ANGLE = 85;
+const int SPEED_HEIGHT = 100;
+const int SPEED_ANGLE = 65;
 
 // PID Constants
-const int P_HEIGHT = 10;
-const int P_ANGLE = 15;
-const int I_HEIGHT = 10;
-const int I_ANGLE = 0;
+const int P_HEIGHT = 20;
+const int P_ANGLE = 1;
+const int I_HEIGHT = 24;
+const int I_ANGLE = 1;
 const int I_MAX_HEIGHT = 150;
 const int I_MAX_ANGLE = 150;
-const int D_HEIGHT = 40;
-const int D_ANGLE = 5;
+const int D_HEIGHT = 0;
+const int D_ANGLE = 4;
 
 // Positions
 const int ARM_UP = 950;
 const int ARM_HOR = 800;
-const int ARM_DOWN_LOW = 700;
-const int ARM_DOWN_HIGH = 750;
+const int ARM_DOWN = 700;
 const int ARM_PICKUP = 600;
 const int ARM_LEFT = 200;
 const int ARM_CENTRE = 470;
@@ -136,12 +135,12 @@ const int ARM_RIGHT = 670;
 const int SHIFT = 70; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
-const int DEADBAND_HEIGHT = 25;
-const int DEADBAND_ANGLE = 25;
+const int DEADBAND_HEIGHT = 15;
+const int DEADBAND_ANGLE = 20;
 
 // Other
-const int MAX_TIME_LONG = 3000; //Max time the arm can move down for pickup (low pet)
-const int MAX_TIME_SHORT = 2000; //Max time the arm can move down for pickup (high pet)
+const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
+const int MAX_TIME_SHORT = 1000; //Max time the arm can move down for pickup (high pet)
 const int MAX_ANALOG = 1023; // for converting arduino resolution to speed
 const int PET_QRD_THRESHOLD = 600; // when the arm will stop to pick up pets
 
@@ -182,8 +181,8 @@ const int D_IR = 60;
 const int SPEED_IR = 500;
 
 //Other
-const int STOP_IR = 1023;
-const int STOP_RE = 30;
+const int STOP_IR = 300;
+const int STOP_RE = 37;
 
 /*
 =================
@@ -199,7 +198,7 @@ void loop()
     setServo(SERVO_PLATE, 0);
     ArmPID(HEIGHT,ARM_UP,false);
     ArmPID(ANGLE,ARM_CENTRE,false);
-    ArmPID(HEIGHT,ARM_DOWN_LOW,true);
+    ArmPID(HEIGHT,ARM_DOWN,true);
     count_setup++;
   }
 
@@ -252,12 +251,13 @@ void mainStart()
       PIDTape();
     }
     if (NUM == 4) {
-      moveTo(-15, 32, false);
-      moveTo(-20, 0, false);
+      moveTo(-20, 30, false);
+      moveTo(-15, 0, false);
+      // while(true){ stopDrive; };
       PIDIR(false);
       if(DEBUG) {delay(2000);}
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_RIGHT, true);
+      pickup(ARM_RIGHT);
       ArmPID(HEIGHT,ARM_HOR,false);
       moveTo(0,-50,false);
       moveTo(270, 0, true);
@@ -267,24 +267,17 @@ void mainStart()
     if (NUM == 6) {
       moveTo(0, 10, false);
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_LEFT, true);
+      pickup(ARM_LEFT);
       findTape();
       PIDTape();
     }
-    if (NUM == 7) {
-      moveTo(0, 30, false);
-      moveTo(-20, -15, false);
-      ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_LEFT, true);
-      findTape();
-      PIDTape();
-    }
-    if (NUM == 8) {
+    if (NUM == 7 || NUM == 8) {
       moveTo(0, 28, false);
-      moveTo(-20, -10, false);
+      moveTo(-15, -15, false);
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_LEFT, false);
-      // ArmPID(HEIGHT, ARM_HOR, false);
+      pickup(ARM_LEFT);
+      findTape();
+      if (NUM == 8){ArmPID(HEIGHT,ARM_HOR,false);}
       findTape();
       PIDTape();
     }
@@ -433,12 +426,12 @@ void setServo(int servo, int angle)
 The arm moves up and to the centre of the box and then releases the pet
 into the box
 */
-void dropoff(bool drop)
+void dropoff()
 {
   ArmPID(HEIGHT, ARM_UP, false);
   ArmPID(ANGLE, ARM_CENTRE, false);
-  if(drop) {setServo(SERVO_PLATE, 90);}
-  while(digitalRead(SWITCH_PLATE) == LOW && drop) {}
+  setServo(SERVO_PLATE, 90);
+  while(digitalRead(SWITCH_PLATE) == LOW) {}
   delay(500);
   setServo(SERVO_PLATE, 0);
 }
@@ -449,10 +442,10 @@ The arm will then dropoff the pet in the box.
 Params:
 Side - the side of the robot we want to pick up on
 */
-void pickup(int side, bool drop)
+void pickup(int side)
 {
   int angle = 0;
-  int height = ARM_DOWN_LOW;
+  int height = ARM_DOWN;
   int height_check = ARM_HOR;
   int attempt = 0;
   ArmPID(HEIGHT, ARM_UP, false);
@@ -461,7 +454,7 @@ void pickup(int side, bool drop)
       case 0:
         angle = side;
         if(side == ARM_RIGHT) {
-          height = ARM_DOWN_HIGH;
+          height = ARM_HOR;
           height_check = ARM_UP;
         }
         break;
@@ -479,7 +472,7 @@ void pickup(int side, bool drop)
     ArmPID(HEIGHT, height_check, false);
     attempt++;
   }
-  dropoff(drop);
+  dropoff();
 }
 
 /*
@@ -830,15 +823,13 @@ void ArmPID(int dim, int pos, bool swi)
     //Check if arm is within deadband of target
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
       target++;
-      if(pot <= ( pos + 5 ) && pot >= ( pos - 5)) {error = 0;}
     }
     else { target = 0; }
 
     //Calculating compensation
     proportional = P_gain * error;
     derivative = D_gain * (error - last_error);
-    integral = (I_gain * error) + integral;
-
+    integral = I_gain * (error) + integral;
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}
