@@ -256,15 +256,12 @@ void mainStart()
       moveTo(-15, 32, false);
       moveTo(-20, 0, false);
       PIDIR(false);
-      if(DEBUG) {delay(2000);}
       ArmPID(HEIGHT,ARM_UP,false);
       pickup(ARM_RIGHT, true);
       ArmPID(HEIGHT,ARM_HOR,false);
       moveTo(0,-50,false);
       moveTo(270, 0, true);
       NUM++;
-      moveTo(185, 0, false); // code to turn around
-      PIDIR(true); // start IR following until hits 4th pet tape
       PIDTape();
     }
     if (NUM == 6) {
