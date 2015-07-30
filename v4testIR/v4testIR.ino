@@ -84,7 +84,6 @@ const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
-const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
 const int QRD_PET_RIGHT = 5; //QRD for locating pets back
 const int QRD_PET_LEFT = 7; //QRD for locating pets front
@@ -185,6 +184,8 @@ const int SPEED_IR = 500;
 const int STOP_IR = 1023;
 const int STOP_RE = 30;
 
+const int STOP_VAL = 120;
+
 /*
 =================
 == HOME SCREEN ==
@@ -236,7 +237,7 @@ NUM == 1; past 1st pet
 NUM == 2; Past 2nd pet
 NUM == 3; Past 3rd pet
 NUM == 4; At 4th pet
-NUM == 5; On way back from 4th pet
+NUM == 5; On way back from 4th pet / 5th pet and IR following
 NUM == 6; At 3rd pet
 NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
@@ -262,6 +263,8 @@ void mainStart()
       moveTo(0,-50,false);
       moveTo(270, 0, true);
       NUM++;
+      moveTo(185, 0, false); // code to turn around
+      PIDIR(true); // start IR following until hits 4th pet tape
       PIDTape();
     }
     if (NUM == 6) {
@@ -488,8 +491,6 @@ void pickup(int side, bool drop)
 ========================
 */
 
-// TODO: CLEAN UP MESSY CONTROL IF STATEMENTS
-
 /*
 PID control for tape following.
 For reference:
@@ -612,6 +613,7 @@ void PIDTape()
 ============
 */
 
+
 void PIDIR(bool tf)
 {
   //Variables
@@ -675,6 +677,7 @@ void PIDIR(bool tf)
       stopDrive();
       return;
     }
+
 
     //Stop when front QRD's are on tape
     if(tf) {
@@ -827,6 +830,10 @@ void ArmPID(int dim, int pos, bool swi)
     //Determine error
     error = (pot - pos) / 10.0;
 
+    // to handle static friction problems
+    if(error < 0) { error += -3; }
+    else { error += 3; }
+
     //Check if arm is within deadband of target
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
       target++;
@@ -834,11 +841,12 @@ void ArmPID(int dim, int pos, bool swi)
     }
     else { target = 0; }
 
+    if(pot - pos == 0) {error = 0;}
+
     //Calculating compensation
     proportional = P_gain * error;
     derivative = D_gain * (error - last_error);
     integral = (I_gain * error) + integral;
-
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}

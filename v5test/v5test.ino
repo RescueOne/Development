@@ -84,14 +84,23 @@ const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
-const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
+<<<<<<< HEAD
 const int QRD_PET_RIGHT = 5; //QRD for locating pets back
 const int QRD_PET_LEFT = 7; //QRD for locating pets front
 const int POTENTIOMETER_CRANE_HEIGHT = 6; //Rotary potentiometer for crane arm
 const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
 const int IR_LEFT = 2;
 const int IR_RIGHT = 3;
+=======
+const int QRD_LEFT = 1; //Left QRD for tape following
+const int IR_RIGHT = 2;
+const int IR_LEFT = 3;
+const int POTENTIOMETER_CRANE_HEIGHT = 5; //Rotary potentiometer for crane arm
+const int POTENTIOMETER_CRANE_ANGLE = 4; //Rotary potentiometer for crane arm
+const int QRD_PET_RIGHT = 6; //QRD for locating pets back
+const int QRD_PET_LEFT = 7; //QRD for locating pets front
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 
 //Servo
 const int SERVO_PLATE = 0; //Servo to drop pet
@@ -111,23 +120,41 @@ const int ROT_RIGHT = 1; //Rotary encoder for right wheel
 // Height -> vertical movement of the arm
 
 // Speed
-const int SPEED_HEIGHT = 100;
-const int SPEED_ANGLE = 65;
+<<<<<<< HEAD
+const int SPEED_HEIGHT = 90;
+const int SPEED_ANGLE = 85;
 
 // PID Constants
-const int P_HEIGHT = 20;
-const int P_ANGLE = 1;
-const int I_HEIGHT = 24;
-const int I_ANGLE = 1;
+const int P_HEIGHT = 10;
+const int P_ANGLE = 15;
+const int I_HEIGHT = 10;
+const int I_ANGLE = 0;
 const int I_MAX_HEIGHT = 150;
 const int I_MAX_ANGLE = 150;
-const int D_HEIGHT = 0;
-const int D_ANGLE = 4;
+const int D_HEIGHT = 40;
+const int D_ANGLE = 5;
+=======
+const int SPEED_HEIGHT = 70; // TODO: CHECK THIS
+const int SPEED_ANGLE = 80;
+
+// PID Constants
+// ANGLE
+const int P_ANGLE = 8;
+const int I_ANGLE = 0;
+const int D_ANGLE = 820;
+const int I_MAX_ANGLE = 150;
+// HEIGHT
+const int P_HEIGHT = 10;
+const int I_HEIGHT = 0;
+const int D_HEIGHT = 145;
+const int I_MAX_HEIGHT = 150;
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 
 // Positions
 const int ARM_UP = 950;
 const int ARM_HOR = 800;
-const int ARM_DOWN = 700;
+const int ARM_DOWN_LOW = 700;
+const int ARM_DOWN_HIGH = 750;
 const int ARM_PICKUP = 600;
 const int ARM_LEFT = 200;
 const int ARM_CENTRE = 470;
@@ -135,12 +162,17 @@ const int ARM_RIGHT = 670;
 const int SHIFT = 70; // The amount the arm shifts on each attempt
 
 // Range of where the arm will be in an "error-free" zero
+<<<<<<< HEAD
+const int DEADBAND_HEIGHT = 25;
+const int DEADBAND_ANGLE = 25;
+=======
 const int DEADBAND_HEIGHT = 15;
-const int DEADBAND_ANGLE = 20;
+const int DEADBAND_ANGLE = 10;
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 
 // Other
-const int MAX_TIME_LONG = 2000; //Max time the arm can move down for pickup (low pet)
-const int MAX_TIME_SHORT = 1000; //Max time the arm can move down for pickup (high pet)
+const int MAX_TIME_LONG = 3000; //Max time the arm can move down for pickup (low pet)
+const int MAX_TIME_SHORT = 2000; //Max time the arm can move down for pickup (high pet)
 const int MAX_ANALOG = 1023; // for converting arduino resolution to speed
 const int PET_QRD_THRESHOLD = 600; // when the arm will stop to pick up pets
 
@@ -181,8 +213,10 @@ const int D_IR = 60;
 const int SPEED_IR = 500;
 
 //Other
-const int STOP_IR = 300;
-const int STOP_RE = 37;
+const int STOP_IR = 1023;
+const int STOP_RE = 30;
+
+const int STOP_VAL = 120;
 
 /*
 =================
@@ -198,7 +232,7 @@ void loop()
     setServo(SERVO_PLATE, 0);
     ArmPID(HEIGHT,ARM_UP,false);
     ArmPID(ANGLE,ARM_CENTRE,false);
-    ArmPID(HEIGHT,ARM_DOWN,true);
+    ArmPID(HEIGHT,ARM_DOWN_LOW,true);
     count_setup++;
   }
 
@@ -235,7 +269,7 @@ NUM == 1; past 1st pet
 NUM == 2; Past 2nd pet
 NUM == 3; Past 3rd pet
 NUM == 4; At 4th pet
-NUM == 5; On way back from 4th pet
+NUM == 5; On way back from 4th pet / 5th pet and IR following
 NUM == 6; At 3rd pet
 NUM == 7; At 2nd pet
 NUM == 8; At 1st pet
@@ -251,33 +285,51 @@ void mainStart()
       PIDTape();
     }
     if (NUM == 4) {
-      moveTo(-20, 30, false);
-      moveTo(-15, 0, false);
-      // while(true){ stopDrive; };
+<<<<<<< HEAD
+      moveTo(-15, 32, false);
+      moveTo(-20, 0, false);
       PIDIR(false);
       if(DEBUG) {delay(2000);}
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_RIGHT);
+      pickup(ARM_RIGHT, true);
       ArmPID(HEIGHT,ARM_HOR,false);
       moveTo(0,-50,false);
       moveTo(270, 0, true);
+=======
+      stopDrive();
+      // moveTo(-20, 27, false);
+      PIDIR(false); // start IR following but don't look for tape
+      // picks up 5th pet
+      ArmPID(HEIGHT,ARM_UP);
+      pickup(ARM_RIGHT);
+      ArmPID(HEIGHT,ARM_HOR);
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
       NUM++;
+      moveTo(185, 0, false); // code to turn around
+      PIDIR(true); // start IR following until hits 4th pet tape
       PIDTape();
     }
     if (NUM == 6) {
       moveTo(0, 10, false);
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_LEFT);
+      pickup(ARM_LEFT, true);
       findTape();
       PIDTape();
     }
-    if (NUM == 7 || NUM == 8) {
-      moveTo(0, 28, false);
-      moveTo(-15, -15, false);
+    if (NUM == 7) {
+      moveTo(0, 30, false);
+      moveTo(-20, -15, false);
       ArmPID(HEIGHT,ARM_UP,false);
-      pickup(ARM_LEFT);
+      pickup(ARM_LEFT, true);
       findTape();
-      if (NUM == 8){ArmPID(HEIGHT,ARM_HOR,false);}
+      PIDTape();
+    }
+    if (NUM == 8) {
+      moveTo(0, 28, false);
+      moveTo(-20, -10, false);
+      ArmPID(HEIGHT,ARM_UP,false);
+      pickup(ARM_LEFT, false);
+      // ArmPID(HEIGHT, ARM_HOR, false);
       findTape();
       PIDTape();
     }
@@ -426,12 +478,12 @@ void setServo(int servo, int angle)
 The arm moves up and to the centre of the box and then releases the pet
 into the box
 */
-void dropoff()
+void dropoff(bool drop)
 {
   ArmPID(HEIGHT, ARM_UP, false);
   ArmPID(ANGLE, ARM_CENTRE, false);
-  setServo(SERVO_PLATE, 90);
-  while(digitalRead(SWITCH_PLATE) == LOW) {}
+  if(drop) {setServo(SERVO_PLATE, 90);}
+  while(digitalRead(SWITCH_PLATE) == LOW && drop) {}
   delay(500);
   setServo(SERVO_PLATE, 0);
 }
@@ -442,10 +494,10 @@ The arm will then dropoff the pet in the box.
 Params:
 Side - the side of the robot we want to pick up on
 */
-void pickup(int side)
+void pickup(int side, bool drop)
 {
   int angle = 0;
-  int height = ARM_DOWN;
+  int height = ARM_DOWN_LOW;
   int height_check = ARM_HOR;
   int attempt = 0;
   ArmPID(HEIGHT, ARM_UP, false);
@@ -454,7 +506,7 @@ void pickup(int side)
       case 0:
         angle = side;
         if(side == ARM_RIGHT) {
-          height = ARM_HOR;
+          height = ARM_DOWN_HIGH;
           height_check = ARM_UP;
         }
         break;
@@ -472,7 +524,7 @@ void pickup(int side)
     ArmPID(HEIGHT, height_check, false);
     attempt++;
   }
-  dropoff();
+  dropoff(drop);
 }
 
 /*
@@ -480,8 +532,6 @@ void pickup(int side)
 == TAPE FOLLOWING PID ==
 ========================
 */
-
-// TODO: CLEAN UP MESSY CONTROL IF STATEMENTS
 
 /*
 PID control for tape following.
@@ -605,7 +655,11 @@ void PIDTape()
 ============
 */
 
+<<<<<<< HEAD
 void PIDIR(bool tf)
+=======
+void PIDIR(bool tape)
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 {
   //Variables
   int irVal_left = 0; //Value of IR sensor
@@ -645,6 +699,7 @@ void PIDIR(bool tf)
     irVal_left = analogRead(IR_LEFT);
     irVal_right = analogRead(IR_RIGHT);
 
+<<<<<<< HEAD
     //Stop at IR stop value
     if(irVal_left > STOP_IR && irVal_right > STOP_IR && !tf) {
       delay(100);
@@ -667,7 +722,27 @@ void PIDIR(bool tf)
       }
       stopDrive();
       return;
+=======
+    // if not looking for tape
+    if( tape == false) {
+      //Stop at a certain IR threshold value (stop-IR is the value to change)
+      if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) {
+        delay(100);
+        irVal_left = analogRead(IR_LEFT);
+        irVal_right = analogRead(IR_RIGHT);
+        if(irVal_left > STOP_VAL && irVal_right > STOP_VAL) { return; }
+      }
+
+      //Stop after a certain numder of turns (stop-RE is the value to change)
+      checkEnc();
+      if(TURNS_LEFT >= TURNS && TURNS_RIGHT >= TURNS) { return; }
     }
+    else // will tape follow until a pet qrd is high
+    {
+      if(analogRead(QRD_PET_RIGHT) > PET_QRD_THRESHOLD || analogRead(QRD_PET_RIGHT) > PET_QRD_THRESHOLD ) { return; }
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
+    }
+
 
     //Stop when front QRD's are on tape
     if(tf) {
@@ -709,6 +784,21 @@ void PIDIR(bool tf)
   }
 }
 
+<<<<<<< HEAD
+=======
+//Check the rotary encoders and increment turns
+// void checkEnc()
+// {
+//   cur_enc_left = digitalRead(ROT_LEFT);
+//   cur_enc_right = digitalRead(ROT_RIGHT);
+
+//   if(prev_enc_left == HIGH && cur_enc_left == LOW) { TURNS_LEFT++; }
+//   if(prev_enc_right == HIGH && cur_enc_right == LOW) { TURNS_RIGHT++; }
+
+//   prev_enc_left = cur_enc_left; prev_enc_right = cur_enc_right;
+// }
+
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 /*
 =============
 == ARM PID ==
@@ -820,16 +910,29 @@ void ArmPID(int dim, int pos, bool swi)
     //Determine error
     error = (pot - pos) / 10.0;
 
+    // to handle static friction problems
+    if(error < 0) { error += -3; }
+    else { error += 3; }
+
     //Check if arm is within deadband of target
     if( pot <= ( pos + deadband ) && pot >= ( pos - deadband)) {
       target++;
+      if(pot <= ( pos + 5 ) && pot >= ( pos - 5)) {error = 0;}
     }
     else { target = 0; }
 
+    if(pot - pos == 0) {error = 0;}
+
     //Calculating compensation
     proportional = P_gain * error;
+<<<<<<< HEAD
     derivative = D_gain * (error - last_error);
-    integral = I_gain * (error) + integral;
+    integral = (I_gain * error) + integral;
+
+=======
+    derivative = ((float) D_gain) * (error - last_error);
+    integral = I_gain * error / 100.0 + integral;
+>>>>>>> 3b07041013dcb7f61a51c11fd71c9cae99bbade8
 
     // handling integral gain
     if ( integral > maxI) { integral = maxI;}
