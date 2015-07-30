@@ -84,6 +84,7 @@ const int MOTOR_CRANE_HEIGHT = 1; //Motor for arm height
 const int MOTOR_CRANE_ANGLE = 0; //Motor for arm angle
 
 //Analog
+const int QRD_LEFT = 1; //Left QRD for tape following
 const int QRD_RIGHT = 0; //Right QRD for tape following
 const int QRD_PET_RIGHT = 5; //QRD for locating pets back
 const int QRD_PET_LEFT = 7; //QRD for locating pets front
